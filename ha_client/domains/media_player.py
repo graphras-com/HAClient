@@ -28,9 +28,27 @@ class FavoriteItem:
     The item remembers which :class:`MediaPlayer` it belongs to, along with the
     ``media_content_id`` / ``media_content_type`` pair needed to play it. Call
     :meth:`play` to start playback on the owning media player.
+
+    Extra metadata is captured to make the item easy to render in a UI:
+
+    * ``thumbnail`` – an optional image URL from Home Assistant.
+    * ``category`` – a human-readable label for the kind of favorite (e.g.
+      ``"Radio"``, ``"Albums"``, ``"Playlists"``). It is derived from the title
+      of the parent folder it was found under when available, otherwise falls
+      back to ``media_class``.
+    * ``media_class`` – the raw ``media_class`` reported by HA (e.g.
+      ``"genre"``, ``"album"``, ``"playlist"``, ``"track"``).
     """
 
-    __slots__ = ("title", "media_content_id", "media_content_type", "_player")
+    __slots__ = (
+        "title",
+        "media_content_id",
+        "media_content_type",
+        "thumbnail",
+        "category",
+        "media_class",
+        "_player",
+    )
 
     def __init__(
         self,
@@ -39,10 +57,16 @@ class FavoriteItem:
         media_content_id: str,
         media_content_type: str,
         player: MediaPlayer,
+        thumbnail: str | None = None,
+        category: str | None = None,
+        media_class: str | None = None,
     ) -> None:
         self.title = title
         self.media_content_id = media_content_id
         self.media_content_type = media_content_type
+        self.thumbnail = thumbnail
+        self.category = category
+        self.media_class = media_class
         self._player = player
 
     async def play(self) -> None:
@@ -52,8 +76,11 @@ class FavoriteItem:
     def __repr__(self) -> str:
         return (
             f"FavoriteItem(title={self.title!r}, "
+            f"category={self.category!r}, "
+            f"media_class={self.media_class!r}, "
             f"media_content_type={self.media_content_type!r}, "
-            f"media_content_id={self.media_content_id!r})"
+            f"media_content_id={self.media_content_id!r}, "
+            f"thumbnail={self.thumbnail!r})"
         )
 
 
@@ -206,59 +233,90 @@ class MediaPlayer(Entity):
         seen: set[tuple[str, str]] = set()
         node_count = 0
 
-        async def walk(node: dict[str, Any], depth: int) -> None:
+        # The "root" node for a favorites browse is typically a generic
+        # "Favorites" directory; its title is not useful as a category. We
+        # therefore only start inheriting the parent's title as the category
+        # once we are at least one level deep.
+        async def walk(
+            node: dict[str, Any], depth: int, category: str | None
+        ) -> None:
             nonlocal node_count
             if node_count >= max_nodes:
                 return
             node_count += 1
 
             children = node.get("children")
-            if isinstance(children, list):
-                for child in children:
-                    if not isinstance(child, dict):
+            if not isinstance(children, list):
+                return
+
+            for child in children:
+                if not isinstance(child, dict):
+                    continue
+                content_id = child.get("media_content_id")
+                content_type = child.get("media_content_type")
+                title = child.get("title") or child.get("name") or ""
+                can_play = bool(child.get("can_play"))
+                can_expand = bool(child.get("can_expand"))
+                thumbnail = child.get("thumbnail")
+                media_class = child.get("media_class")
+
+                if (
+                    can_play
+                    and isinstance(content_id, str)
+                    and isinstance(content_type, str)
+                ):
+                    key = (content_type, content_id)
+                    if key not in seen:
+                        seen.add(key)
+                        collected.append(
+                            FavoriteItem(
+                                title=str(title),
+                                media_content_id=content_id,
+                                media_content_type=content_type,
+                                player=self,
+                                thumbnail=(
+                                    thumbnail if isinstance(thumbnail, str) else None
+                                ),
+                                category=category
+                                or (
+                                    media_class
+                                    if isinstance(media_class, str)
+                                    else None
+                                ),
+                                media_class=(
+                                    media_class
+                                    if isinstance(media_class, str)
+                                    else None
+                                ),
+                            )
+                        )
+
+                if (
+                    can_expand
+                    and depth + 1 < max_depth
+                    and isinstance(content_id, str)
+                    and isinstance(content_type, str)
+                ):
+                    try:
+                        sub = await self.browse_media(content_type, content_id)
+                    except (CommandError, HAClientError) as err:
+                        _LOGGER.debug(
+                            "browse_media sublevel failed (%s/%s): %s",
+                            content_type,
+                            content_id,
+                            err,
+                        )
                         continue
-                    content_id = child.get("media_content_id")
-                    content_type = child.get("media_content_type")
-                    title = child.get("title") or child.get("name") or ""
-                    can_play = bool(child.get("can_play"))
-                    can_expand = bool(child.get("can_expand"))
+                    except asyncio.CancelledError:
+                        raise
+                    # Pass the child's title as category for its descendants.
+                    # At depth 0 the child *is* a top-level folder like
+                    # "Radio" / "Albums" / "Playlists" and its title becomes
+                    # the category for everything underneath.
+                    child_category = (
+                        str(title) if title else category
+                    )
+                    await walk(sub, depth + 1, child_category)
 
-                    if (
-                        can_play
-                        and isinstance(content_id, str)
-                        and isinstance(content_type, str)
-                    ):
-                        key = (content_type, content_id)
-                        if key not in seen:
-                            seen.add(key)
-                            collected.append(
-                                FavoriteItem(
-                                    title=str(title),
-                                    media_content_id=content_id,
-                                    media_content_type=content_type,
-                                    player=self,
-                                )
-                            )
-
-                    if (
-                        can_expand
-                        and depth + 1 < max_depth
-                        and isinstance(content_id, str)
-                        and isinstance(content_type, str)
-                    ):
-                        try:
-                            sub = await self.browse_media(content_type, content_id)
-                        except (CommandError, HAClientError) as err:
-                            _LOGGER.debug(
-                                "browse_media sublevel failed (%s/%s): %s",
-                                content_type,
-                                content_id,
-                                err,
-                            )
-                            continue
-                        except asyncio.CancelledError:
-                            raise
-                        await walk(sub, depth + 1)
-
-        await walk(root, 0)
+        await walk(root, 0, None)
         return collected

@@ -17,7 +17,6 @@ async def main() -> None:
     async with HAClient(url, token=token) as ha:
         player = ha.media_player("entertainment")
         favs = await player.favorites()
-        print(f"Found {len(favs)} playable items")
         for fav in favs:
             print(fav)
             #print(f"  {fav.media_content_type}: {fav.title}")
