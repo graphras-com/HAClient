@@ -1,0 +1,264 @@
+"""``media_player`` domain implementation.
+
+This module also contains the :class:`FavoriteItem` helper returned by
+:meth:`MediaPlayer.favorites`, which recursively traverses the
+``media_player/browse_media`` tree and flattens it into a list of directly
+playable items.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from ..entity import Entity
+from ..exceptions import CommandError, HAClientError
+
+_LOGGER = logging.getLogger(__name__)
+
+# Safety cap so that misbehaving integrations cannot send us into a huge tree.
+_MAX_BROWSE_NODES = 2000
+_MAX_BROWSE_DEPTH = 6
+
+
+class FavoriteItem:
+    """A flattened, directly-playable entry discovered via ``browse_media``.
+
+    The item remembers which :class:`MediaPlayer` it belongs to, along with the
+    ``media_content_id`` / ``media_content_type`` pair needed to play it. Call
+    :meth:`play` to start playback on the owning media player.
+    """
+
+    __slots__ = ("title", "media_content_id", "media_content_type", "_player")
+
+    def __init__(
+        self,
+        *,
+        title: str,
+        media_content_id: str,
+        media_content_type: str,
+        player: MediaPlayer,
+    ) -> None:
+        self.title = title
+        self.media_content_id = media_content_id
+        self.media_content_type = media_content_type
+        self._player = player
+
+    async def play(self) -> None:
+        """Play this favorite on its :class:`MediaPlayer`."""
+        await self._player.play_media(self.media_content_type, self.media_content_id)
+
+    def __repr__(self) -> str:
+        return (
+            f"FavoriteItem(title={self.title!r}, "
+            f"media_content_type={self.media_content_type!r}, "
+            f"media_content_id={self.media_content_id!r})"
+        )
+
+
+class MediaPlayer(Entity):
+    """A Home Assistant media player entity."""
+
+    domain = "media_player"
+
+    # ------------------------------------------------------------------ state
+    @property
+    def is_playing(self) -> bool:
+        """``True`` if the media player is currently playing."""
+        return self.state == "playing"
+
+    @property
+    def is_paused(self) -> bool:
+        """``True`` if the media player is currently paused."""
+        return self.state == "paused"
+
+    @property
+    def volume_level(self) -> float | None:
+        """Current volume level (``0.0`` – ``1.0``) or ``None`` if unknown."""
+        value = self.attributes.get("volume_level")
+        return float(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def source(self) -> str | None:
+        """Currently selected source, if any."""
+        value = self.attributes.get("source")
+        return str(value) if value is not None else None
+
+    # ------------------------------------------------------------- playback
+    async def play(self) -> None:
+        """Resume / start playback."""
+        await self.call_service("media_play")
+
+    async def pause(self) -> None:
+        """Pause playback."""
+        await self.call_service("media_pause")
+
+    async def play_pause(self) -> None:
+        """Toggle play/pause."""
+        await self.call_service("media_play_pause")
+
+    async def stop(self) -> None:
+        """Stop playback."""
+        await self.call_service("media_stop")
+
+    async def next(self) -> None:
+        """Skip to the next track."""
+        await self.call_service("media_next_track")
+
+    async def previous(self) -> None:
+        """Skip to the previous track."""
+        await self.call_service("media_previous_track")
+
+    async def set_volume(self, level: float) -> None:
+        """Set the volume level (``0.0`` – ``1.0``)."""
+        if not 0.0 <= level <= 1.0:
+            raise ValueError("Volume level must be between 0.0 and 1.0")
+        await self.call_service("volume_set", {"volume_level": float(level)})
+
+    async def mute(self, muted: bool = True) -> None:
+        """Mute or unmute the media player."""
+        await self.call_service("volume_mute", {"is_volume_muted": bool(muted)})
+
+    async def turn_on(self) -> None:
+        """Power the media player on."""
+        await self.call_service("turn_on")
+
+    async def turn_off(self) -> None:
+        """Power the media player off."""
+        await self.call_service("turn_off")
+
+    async def select_source(self, source: str) -> None:
+        """Select an input source."""
+        await self.call_service("select_source", {"source": source})
+
+    async def play_media(
+        self,
+        media_content_type: str,
+        media_content_id: str,
+        **extra: Any,
+    ) -> None:
+        """Play a specific media item (by content type / id)."""
+        data: dict[str, Any] = {
+            "media_content_type": media_content_type,
+            "media_content_id": media_content_id,
+            **extra,
+        }
+        await self.call_service("play_media", data)
+
+    # ------------------------------------------------------------- favorites
+    async def browse_media(
+        self,
+        media_content_type: str | None = None,
+        media_content_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Issue a single ``media_player/browse_media`` WebSocket command.
+
+        Returns the raw result dictionary from Home Assistant. Raises
+        :class:`HAClientError` if the command fails.
+        """
+        payload: dict[str, Any] = {
+            "type": "media_player/browse_media",
+            "entity_id": self.entity_id,
+        }
+        if media_content_type is not None:
+            payload["media_content_type"] = media_content_type
+        if media_content_id is not None:
+            payload["media_content_id"] = media_content_id
+        result = await self._client.ws.send_command(payload)
+        if not isinstance(result, dict):
+            raise HAClientError("Unexpected browse_media response")
+        return result
+
+    async def favorites(
+        self,
+        *,
+        max_depth: int = _MAX_BROWSE_DEPTH,
+        max_nodes: int = _MAX_BROWSE_NODES,
+    ) -> list[FavoriteItem]:
+        """Return a flattened list of playable items in the media tree.
+
+        The method recursively walks the ``browse_media`` tree rooted at the
+        entity and collects every entry that Home Assistant marks as
+        ``can_play`` (and that has a ``media_content_id``).
+
+        If the media player doesn't support browsing, an empty list is
+        returned (no exception is raised).
+
+        Parameters
+        ----------
+        max_depth:
+            Maximum recursion depth. Defaults to a sensible cap to avoid
+            pathological trees.
+        max_nodes:
+            Hard upper bound on total nodes visited (also a safety net).
+        """
+        try:
+            root = await self.browse_media()
+        except CommandError as err:
+            _LOGGER.debug("browse_media unsupported for %s: %s", self.entity_id, err)
+            return []
+        except HAClientError as err:
+            _LOGGER.debug("browse_media failed for %s: %s", self.entity_id, err)
+            return []
+
+        collected: list[FavoriteItem] = []
+        seen: set[tuple[str, str]] = set()
+        node_count = 0
+
+        async def walk(node: dict[str, Any], depth: int) -> None:
+            nonlocal node_count
+            if node_count >= max_nodes:
+                return
+            node_count += 1
+
+            children = node.get("children")
+            if isinstance(children, list):
+                for child in children:
+                    if not isinstance(child, dict):
+                        continue
+                    content_id = child.get("media_content_id")
+                    content_type = child.get("media_content_type")
+                    title = child.get("title") or child.get("name") or ""
+                    can_play = bool(child.get("can_play"))
+                    can_expand = bool(child.get("can_expand"))
+
+                    if (
+                        can_play
+                        and isinstance(content_id, str)
+                        and isinstance(content_type, str)
+                    ):
+                        key = (content_type, content_id)
+                        if key not in seen:
+                            seen.add(key)
+                            collected.append(
+                                FavoriteItem(
+                                    title=str(title),
+                                    media_content_id=content_id,
+                                    media_content_type=content_type,
+                                    player=self,
+                                )
+                            )
+
+                    if (
+                        can_expand
+                        and depth + 1 < max_depth
+                        and isinstance(content_id, str)
+                        and isinstance(content_type, str)
+                    ):
+                        try:
+                            sub = await self.browse_media(content_type, content_id)
+                        except (CommandError, HAClientError) as err:
+                            _LOGGER.debug(
+                                "browse_media sublevel failed (%s/%s): %s",
+                                content_type,
+                                content_id,
+                                err,
+                            )
+                            continue
+                        except asyncio.CancelledError:
+                            raise
+                        await walk(sub, depth + 1)
+
+        await walk(root, 0)
+        return collected

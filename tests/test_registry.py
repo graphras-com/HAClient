@@ -1,0 +1,41 @@
+"""Tests for the EntityRegistry and name resolution."""
+
+from __future__ import annotations
+
+import pytest
+
+from ha_client import HAClient
+from ha_client.exceptions import EntityNotFoundError
+from ha_client.registry import EntityRegistry
+
+
+def test_resolve_short_and_full_name() -> None:
+    reg = EntityRegistry()
+    assert reg.resolve("light", "kitchen") == "light.kitchen"
+    assert reg.resolve("light", "light.kitchen") == "light.kitchen"
+    # Cross-domain full id is returned verbatim (caller bears responsibility).
+    assert reg.resolve("light", "switch.hall") == "switch.hall"
+
+
+def test_require_missing() -> None:
+    reg = EntityRegistry()
+    with pytest.raises(EntityNotFoundError):
+        reg.require("light.unknown")
+
+
+def test_register_and_lookup() -> None:
+    reg = EntityRegistry()
+    client = HAClient("http://x", "t")
+    client.registry = reg  # swap the registry so Light registers here
+
+    from ha_client import Light
+
+    light = Light("light.kitchen", client)
+    assert reg.get("light.kitchen") is light
+    assert "light.kitchen" in reg
+    assert len(reg) == 1
+    assert light in reg.in_domain("light")
+    reg.unregister("light.kitchen")
+    assert reg.get("light.kitchen") is None
+    reg.clear()
+    assert len(reg) == 0
