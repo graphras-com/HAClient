@@ -1,0 +1,618 @@
+"""Tests for granular (attribute/state-transition) event listeners."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Any
+
+from ha_client import HAClient
+
+from .fake_ha import FakeHA
+
+
+# ============================================================ MediaPlayer
+
+
+async def test_media_player_on_volume_change(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_volume_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"volume_level": 0.5}},
+        {"state": "playing", "attributes": {"volume_level": 0.3}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(0.3, 0.5)]
+
+
+async def test_media_player_on_volume_change_not_fired_when_same(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_volume_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"volume_level": 0.5}},
+        {"state": "paused", "attributes": {"volume_level": 0.5}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == []
+
+
+async def test_media_player_on_mute_change(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_mute_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"is_volume_muted": True}},
+        {"state": "playing", "attributes": {"is_volume_muted": False}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(False, True)]
+
+
+async def test_media_player_on_source_change(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_source_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"source": "Spotify"}},
+        {"state": "playing", "attributes": {"source": "Radio"}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("Radio", "Spotify")]
+
+
+async def test_media_player_on_play(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_play
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {}},
+        {"state": "paused", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("paused", "playing")]
+
+
+async def test_media_player_on_pause(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_pause
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "paused", "attributes": {}},
+        {"state": "playing", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("playing", "paused")]
+
+
+async def test_media_player_on_stop(client: HAClient, fake_ha: FakeHA) -> None:
+    player = client.media_player("living_room")
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_stop
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "idle", "attributes": {}},
+        {"state": "playing", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("playing", "idle")]
+
+
+# ============================================================ Light
+
+
+async def test_light_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_turn_on
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {}},
+        {"state": "off", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("off", "on")]
+
+
+async def test_light_on_turn_off(client: HAClient, fake_ha: FakeHA) -> None:
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_turn_off
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "off", "attributes": {}},
+        {"state": "on", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("on", "off")]
+
+
+async def test_light_on_brightness_change(client: HAClient, fake_ha: FakeHA) -> None:
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_brightness_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {"brightness": 200}},
+        {"state": "on", "attributes": {"brightness": 100}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(100, 200)]
+
+
+async def test_light_on_color_change(client: HAClient, fake_ha: FakeHA) -> None:
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_color_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {"rgb_color": [255, 0, 0]}},
+        {"state": "on", "attributes": {"rgb_color": [0, 255, 0]}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [([0, 255, 0], [255, 0, 0])]
+
+
+# ============================================================ Switch
+
+
+async def test_switch_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
+    switch = client.switch("pump")
+    captured: list[tuple[Any, Any]] = []
+
+    @switch.on_turn_on
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "switch.pump",
+        {"state": "on", "attributes": {}},
+        {"state": "off", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("off", "on")]
+
+
+async def test_switch_on_turn_off(client: HAClient, fake_ha: FakeHA) -> None:
+    switch = client.switch("pump")
+    captured: list[tuple[Any, Any]] = []
+
+    @switch.on_turn_off
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "switch.pump",
+        {"state": "off", "attributes": {}},
+        {"state": "on", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("on", "off")]
+
+
+# ============================================================ BinarySensor
+
+
+async def test_binary_sensor_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
+    sensor = client.binary_sensor("motion")
+    captured: list[tuple[Any, Any]] = []
+
+    @sensor.on_turn_on
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "binary_sensor.motion",
+        {"state": "on", "attributes": {}},
+        {"state": "off", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("off", "on")]
+
+
+async def test_binary_sensor_on_turn_off(client: HAClient, fake_ha: FakeHA) -> None:
+    sensor = client.binary_sensor("motion")
+    captured: list[tuple[Any, Any]] = []
+
+    @sensor.on_turn_off
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "binary_sensor.motion",
+        {"state": "off", "attributes": {}},
+        {"state": "on", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("on", "off")]
+
+
+# ============================================================ Cover
+
+
+async def test_cover_on_open(client: HAClient, fake_ha: FakeHA) -> None:
+    cover = client.cover("garage")
+    captured: list[tuple[Any, Any]] = []
+
+    @cover.on_open
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "cover.garage",
+        {"state": "open", "attributes": {}},
+        {"state": "closed", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("closed", "open")]
+
+
+async def test_cover_on_close(client: HAClient, fake_ha: FakeHA) -> None:
+    cover = client.cover("garage")
+    captured: list[tuple[Any, Any]] = []
+
+    @cover.on_close
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "cover.garage",
+        {"state": "closed", "attributes": {}},
+        {"state": "open", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("open", "closed")]
+
+
+async def test_cover_on_position_change(client: HAClient, fake_ha: FakeHA) -> None:
+    cover = client.cover("garage")
+    captured: list[tuple[Any, Any]] = []
+
+    @cover.on_position_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "cover.garage",
+        {"state": "open", "attributes": {"current_position": 75}},
+        {"state": "open", "attributes": {"current_position": 50}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(50, 75)]
+
+
+# ============================================================ Climate
+
+
+async def test_climate_on_hvac_mode_change(client: HAClient, fake_ha: FakeHA) -> None:
+    climate = client.climate("thermostat")
+    captured: list[tuple[Any, Any]] = []
+
+    @climate.on_hvac_mode_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "climate.thermostat",
+        {"state": "cool", "attributes": {}},
+        {"state": "heat", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("heat", "cool")]
+
+
+async def test_climate_on_hvac_mode_not_fired_when_same(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    climate = client.climate("thermostat")
+    captured: list[tuple[Any, Any]] = []
+
+    @climate.on_hvac_mode_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "climate.thermostat",
+        {"state": "heat", "attributes": {"current_temperature": 22}},
+        {"state": "heat", "attributes": {"current_temperature": 21}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == []
+
+
+async def test_climate_on_temperature_change(client: HAClient, fake_ha: FakeHA) -> None:
+    climate = client.climate("thermostat")
+    captured: list[tuple[Any, Any]] = []
+
+    @climate.on_temperature_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "climate.thermostat",
+        {"state": "heat", "attributes": {"current_temperature": 22.5}},
+        {"state": "heat", "attributes": {"current_temperature": 21.0}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(21.0, 22.5)]
+
+
+async def test_climate_on_target_temperature_change(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    climate = client.climate("thermostat")
+    captured: list[tuple[Any, Any]] = []
+
+    @climate.on_target_temperature_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "climate.thermostat",
+        {"state": "heat", "attributes": {"temperature": 24.0}},
+        {"state": "heat", "attributes": {"temperature": 22.0}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(22.0, 24.0)]
+
+
+# ============================================================ Sensor
+
+
+async def test_sensor_on_value_change(client: HAClient, fake_ha: FakeHA) -> None:
+    sensor = client.sensor("temperature")
+    captured: list[tuple[Any, Any]] = []
+
+    @sensor.on_value_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "sensor.temperature",
+        {"state": "23.5", "attributes": {}},
+        {"state": "22.0", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [("22.0", "23.5")]
+
+
+async def test_sensor_on_value_change_not_fired_when_same(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    sensor = client.sensor("temperature")
+    captured: list[tuple[Any, Any]] = []
+
+    @sensor.on_value_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "sensor.temperature",
+        {"state": "22.0", "attributes": {"unit_of_measurement": "C"}},
+        {"state": "22.0", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == []
+
+
+# ============================================================ General mechanics
+
+
+async def test_async_granular_handler(client: HAClient, fake_ha: FakeHA) -> None:
+    """Async handlers are properly scheduled."""
+    player = client.media_player("living_room")
+    event = asyncio.Event()
+    captured: list[tuple[Any, Any]] = []
+
+    @player.on_volume_change
+    async def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+        event.set()
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"volume_level": 0.8}},
+        {"state": "playing", "attributes": {"volume_level": 0.4}},
+    )
+    await asyncio.wait_for(event.wait(), timeout=2.0)
+    assert captured == [(0.4, 0.8)]
+
+
+async def test_multiple_granular_listeners(client: HAClient, fake_ha: FakeHA) -> None:
+    """Multiple listeners on the same event all fire."""
+    light = client.light("kitchen")
+    counts = {"a": 0, "b": 0}
+
+    @light.on_turn_on
+    def a(old: Any, new: Any) -> None:
+        counts["a"] += 1
+
+    @light.on_turn_on
+    def b(old: Any, new: Any) -> None:
+        counts["b"] += 1
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {}},
+        {"state": "off", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert counts == {"a": 1, "b": 1}
+
+
+async def test_remove_granular_listener(client: HAClient, fake_ha: FakeHA) -> None:
+    """Removed listeners no longer fire."""
+    light = client.light("kitchen")
+    calls = 0
+
+    def handler(old: Any, new: Any) -> None:
+        nonlocal calls
+        calls += 1
+
+    light.on_brightness_change(handler)
+    light.remove_granular_listener(handler)
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {"brightness": 200}},
+        {"state": "on", "attributes": {"brightness": 100}},
+    )
+    await asyncio.sleep(0.05)
+    assert calls == 0
+
+
+async def test_remove_state_transition_listener(client: HAClient, fake_ha: FakeHA) -> None:
+    """Removed state transition listeners no longer fire."""
+    switch = client.switch("pump")
+    calls = 0
+
+    def handler(old: Any, new: Any) -> None:
+        nonlocal calls
+        calls += 1
+
+    switch.on_turn_on(handler)
+    switch.remove_granular_listener(handler)
+
+    await fake_ha.push_state_changed(
+        "switch.pump",
+        {"state": "on", "attributes": {}},
+        {"state": "off", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert calls == 0
+
+
+async def test_remove_state_value_listener(client: HAClient, fake_ha: FakeHA) -> None:
+    """Removed state value listeners no longer fire."""
+    sensor = client.sensor("temperature")
+    calls = 0
+
+    def handler(old: Any, new: Any) -> None:
+        nonlocal calls
+        calls += 1
+
+    sensor.on_value_change(handler)
+    sensor.remove_granular_listener(handler)
+
+    await fake_ha.push_state_changed(
+        "sensor.temperature",
+        {"state": "25.0", "attributes": {}},
+        {"state": "22.0", "attributes": {}},
+    )
+    await asyncio.sleep(0.05)
+    assert calls == 0
+
+
+async def test_granular_handler_exception_logged(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    """A handler that raises does not break other handlers."""
+    player = client.media_player("living_room")
+    captured: list[Any] = []
+
+    @player.on_volume_change
+    def bad_handler(old: Any, new: Any) -> None:
+        raise RuntimeError("boom")
+
+    @player.on_volume_change
+    def good_handler(old: Any, new: Any) -> None:
+        captured.append(new)
+
+    await fake_ha.push_state_changed(
+        "media_player.living_room",
+        {"state": "playing", "attributes": {"volume_level": 0.9}},
+        {"state": "playing", "attributes": {"volume_level": 0.5}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [0.9]
+
+
+async def test_state_transition_not_fired_on_same_state(
+    client: HAClient, fake_ha: FakeHA
+) -> None:
+    """State transition listener does not fire if state doesn't change."""
+    light = client.light("kitchen")
+    calls = 0
+
+    @light.on_turn_on
+    def handler(old: Any, new: Any) -> None:
+        nonlocal calls
+        calls += 1
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {"brightness": 200}},
+        {"state": "on", "attributes": {"brightness": 100}},
+    )
+    await asyncio.sleep(0.05)
+    assert calls == 0
+
+
+async def test_null_old_state_handling(client: HAClient, fake_ha: FakeHA) -> None:
+    """Events with None old_state still dispatch correctly."""
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_turn_on
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {}},
+        None,
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(None, "on")]

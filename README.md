@@ -113,6 +113,38 @@ async def on_change(old, new):
 Multiple listeners are supported per entity, both sync and async callbacks
 work, and exceptions raised by one listener never disrupt the others.
 
+### Granular events
+
+In addition to the generic `on_state_change`, each domain exposes higher-level
+event decorators that fire only when a specific attribute or state value
+changes. Callbacks receive `(old_value, new_value)`:
+
+```python
+player = ha.media_player("livingroom")
+
+@player.on_volume_change
+async def vol(old, new):
+    print(f"Volume: {old} → {new}")
+
+@player.on_play
+def started(old_state, new_state):
+    print("Playback started!")
+```
+
+Available events per domain:
+
+| Domain          | Events                                                                 |
+| --------------- | ---------------------------------------------------------------------- |
+| `MediaPlayer`   | `on_volume_change`, `on_mute_change`, `on_source_change`, `on_play`, `on_pause`, `on_stop` |
+| `Light`         | `on_turn_on`, `on_turn_off`, `on_brightness_change`, `on_color_change` |
+| `Switch`        | `on_turn_on`, `on_turn_off`                                            |
+| `BinarySensor`  | `on_turn_on`, `on_turn_off`                                            |
+| `Cover`         | `on_open`, `on_close`, `on_position_change`                            |
+| `Climate`       | `on_hvac_mode_change`, `on_temperature_change`, `on_target_temperature_change` |
+| `Sensor`        | `on_value_change`                                                      |
+
+Use `entity.remove_granular_listener(func)` to unregister a granular listener.
+
 ### `favorites()`
 
 ```python

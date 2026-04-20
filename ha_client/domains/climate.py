@@ -12,6 +12,19 @@ class Climate(Entity):
 
     domain = "climate"
 
+    # --------------------------------------------------------------- events
+    def on_hvac_mode_change(self, func: Any) -> Any:
+        """Register a listener for HVAC mode changes. Callback: ``(old_mode, new_mode)``."""
+        return self._register_state_value_listener(func)
+
+    def on_temperature_change(self, func: Any) -> Any:
+        """Register a listener for current temperature changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("current_temperature", func)
+
+    def on_target_temperature_change(self, func: Any) -> Any:
+        """Register a listener for target temperature changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("temperature", func)
+
     # ------------------------------------------------------------------ state
     @property
     def current_temperature(self) -> float | None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..entity import Entity
 
 
@@ -9,6 +11,19 @@ class Cover(Entity):
     """A Home Assistant cover (blind/garage/shade) entity."""
 
     domain = "cover"
+
+    # --------------------------------------------------------------- events
+    def on_open(self, func: Any) -> Any:
+        """Register a listener for when the cover opens. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("open", func)
+
+    def on_close(self, func: Any) -> Any:
+        """Register a listener for when the cover closes. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("closed", func)
+
+    def on_position_change(self, func: Any) -> Any:
+        """Register a listener for position changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("current_position", func)
 
     @property
     def is_open(self) -> bool:

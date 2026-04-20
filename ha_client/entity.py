@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 StateChangeHandler = Callable[[dict[str, Any] | None, dict[str, Any] | None], Any]
+ValueChangeHandler = Callable[[Any, Any], Any]
 F = TypeVar("F", bound=StateChangeHandler)
+V = TypeVar("V", bound=ValueChangeHandler)
 
 
 class Entity:
@@ -45,6 +47,9 @@ class Entity:
         self.state: str = "unknown"
         self.attributes: dict[str, Any] = {}
         self._listeners: list[StateChangeHandler] = []
+        self._attr_listeners: dict[str, list[ValueChangeHandler]] = {}
+        self._state_transition_listeners: dict[str, list[ValueChangeHandler]] = {}
+        self._state_value_listeners: list[ValueChangeHandler] = []
         client.registry.register(self)
 
     # --------------------------------------------------------- state plumbing
@@ -65,8 +70,42 @@ class Entity:
     ) -> None:
         """Internal: update local state and dispatch listeners."""
         self._apply_state(new_state)
+        # Generic state_change listeners
         for listener in list(self._listeners):
             self._schedule(listener, old_state, new_state)
+        # Higher-level event dispatch
+        self._dispatch_granular_events(old_state, new_state)
+
+    def _dispatch_granular_events(
+        self,
+        old_state: dict[str, Any] | None,
+        new_state: dict[str, Any] | None,
+    ) -> None:
+        """Dispatch attribute-level and state-transition events."""
+        old_state_str = (old_state or {}).get("state")
+        new_state_str = (new_state or {}).get("state")
+        old_attrs = (old_state or {}).get("attributes") or {}
+        new_attrs = (new_state or {}).get("attributes") or {}
+
+        # State value change listeners (fire when state string changes)
+        if old_state_str != new_state_str:
+            for listener in list(self._state_value_listeners):
+                self._schedule_value(listener, old_state_str, new_state_str)
+
+        # State transition listeners (fire when state transitions TO a value)
+        if old_state_str != new_state_str and new_state_str is not None:
+            for listener in list(
+                self._state_transition_listeners.get(new_state_str, [])
+            ):
+                self._schedule_value(listener, old_state_str, new_state_str)
+
+        # Attribute listeners
+        for attr_key, listeners in self._attr_listeners.items():
+            old_val = old_attrs.get(attr_key)
+            new_val = new_attrs.get(attr_key)
+            if old_val != new_val:
+                for listener in list(listeners):
+                    self._schedule_value(listener, old_val, new_val)
 
     def _schedule(
         self,
@@ -86,6 +125,70 @@ class Entity:
                 loop.create_task(_await_and_log(awaitable))
             else:  # pragma: no cover - only reached without running loop
                 asyncio.ensure_future(awaitable)
+
+    def _schedule_value(
+        self,
+        handler: ValueChangeHandler,
+        old_value: Any,
+        new_value: Any,
+    ) -> None:
+        """Schedule a value-change handler with (old, new) signature."""
+        try:
+            result = handler(old_value, new_value)
+        except Exception:
+            _LOGGER.exception("Value change handler raised synchronously")
+            return
+        if inspect.isawaitable(result):
+            awaitable: Awaitable[Any] = result
+            loop = self._client.loop
+            if loop is not None and loop.is_running():
+                loop.create_task(_await_and_log(awaitable))
+            else:  # pragma: no cover - only reached without running loop
+                asyncio.ensure_future(awaitable)
+
+    # ------------------------------------------------- granular event helpers
+    def _register_attr_listener(self, attr_key: str, func: V) -> V:
+        """Register a listener for changes to a specific attribute.
+
+        The callback receives ``(old_value, new_value)`` and is only called
+        when the attribute value actually changes between events.
+        """
+        self._attr_listeners.setdefault(attr_key, []).append(func)
+        return func
+
+    def _register_state_transition_listener(self, to_state: str, func: V) -> V:
+        """Register a listener for transitions *to* a specific state.
+
+        The callback receives ``(old_state_str, new_state_str)`` and is only
+        called when the entity's state string transitions to ``to_state``.
+        """
+        self._state_transition_listeners.setdefault(to_state, []).append(func)
+        return func
+
+    def _register_state_value_listener(self, func: V) -> V:
+        """Register a listener for any state string change.
+
+        The callback receives ``(old_state_str, new_state_str)`` and fires
+        whenever the state string changes (regardless of target value).
+        """
+        self._state_value_listeners.append(func)
+        return func
+
+    def remove_granular_listener(self, func: ValueChangeHandler) -> None:
+        """Remove a previously registered granular (attribute/state) listener."""
+        # Search attr listeners
+        for listeners in self._attr_listeners.values():
+            with contextlib.suppress(ValueError):
+                listeners.remove(func)
+                return
+        # Search state transition listeners
+        for listeners in self._state_transition_listeners.values():
+            with contextlib.suppress(ValueError):
+                listeners.remove(func)
+                return
+        # Search state value listeners
+        with contextlib.suppress(ValueError):
+            self._state_value_listeners.remove(func)
 
     # ------------------------------------------------------------- decorators
     def on_state_change(self, func: F) -> F:

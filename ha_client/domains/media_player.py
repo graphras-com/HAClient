@@ -89,6 +89,31 @@ class MediaPlayer(Entity):
 
     domain = "media_player"
 
+    # --------------------------------------------------------------- events
+    def on_volume_change(self, func: Any) -> Any:
+        """Register a listener for volume level changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("volume_level", func)
+
+    def on_mute_change(self, func: Any) -> Any:
+        """Register a listener for mute state changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("is_volume_muted", func)
+
+    def on_source_change(self, func: Any) -> Any:
+        """Register a listener for source changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("source", func)
+
+    def on_play(self, func: Any) -> Any:
+        """Register a listener for when playback starts. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("playing", func)
+
+    def on_pause(self, func: Any) -> Any:
+        """Register a listener for when playback pauses. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("paused", func)
+
+    def on_stop(self, func: Any) -> Any:
+        """Register a listener for when playback stops. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("idle", func)
+
     # ------------------------------------------------------------------ state
     @property
     def is_playing(self) -> bool:

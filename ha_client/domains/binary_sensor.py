@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..entity import Entity
 
 
@@ -9,6 +11,15 @@ class BinarySensor(Entity):
     """A read-only Home Assistant binary sensor entity."""
 
     domain = "binary_sensor"
+
+    # --------------------------------------------------------------- events
+    def on_turn_on(self, func: Any) -> Any:
+        """Register a listener for when the sensor activates. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("on", func)
+
+    def on_turn_off(self, func: Any) -> Any:
+        """Register a listener for when the sensor deactivates. Callback: ``(old_state, new_state)``."""
+        return self._register_state_transition_listener("off", func)
 
     @property
     def is_on(self) -> bool:
