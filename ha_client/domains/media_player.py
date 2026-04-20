@@ -137,6 +137,24 @@ class MediaPlayer(Entity):
         value = self.attributes.get("source")
         return str(value) if value is not None else None
 
+    @property
+    def content_type(self) -> str | None:
+        """Current media content type (e.g. ``"music"``)."""
+        value = self.attributes.get("media_content_type")
+        return str(value) if value is not None else None
+
+    @property
+    def title(self) -> str | None:
+        """Current media title."""
+        value = self.attributes.get("media_title")
+        return str(value) if value is not None else None
+
+    @property
+    def channel(self) -> str | None:
+        """Current media channel."""
+        value = self.attributes.get("media_channel")
+        return str(value) if value is not None else None
+
     # ------------------------------------------------------------- playback
     async def play(self) -> None:
         """Resume / start playback."""
