@@ -142,7 +142,7 @@ Available events per domain:
 | Domain          | Events                                                                 |
 | --------------- | ---------------------------------------------------------------------- |
 | `MediaPlayer`   | `on_volume_change`, `on_mute_change`, `on_media_change`, `on_play`, `on_pause`, `on_stop` |
-| `Light`         | `on_turn_on`, `on_turn_off`, `on_brightness_change`, `on_color_change` |
+| `Light`         | `on_turn_on`, `on_turn_off`, `on_brightness_change`, `on_color_change`, `on_kelvin_change` |
 | `Switch`        | `on_turn_on`, `on_turn_off`                                            |
 | `BinarySensor`  | `on_turn_on`, `on_turn_off`                                            |
 | `Cover`         | `on_open`, `on_close`, `on_position_change`                            |

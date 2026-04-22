@@ -24,17 +24,21 @@ async def test_light_actions(client: HAClient, fake_ha: FakeHA) -> None:
     await light.turn_on(brightness=120, rgb_color=(1, 2, 3), color_temp=200, transition=1.5)
     await light.turn_off(transition=0.5)
     await light.toggle()
+    await light.turn_on(kelvin=4000)
     assert [c["service"] for c in fake_ha.ws_service_calls] == [
         "turn_on",
         "turn_on",
         "turn_off",
         "toggle",
+        "turn_on",
     ]
     second = fake_ha.ws_service_calls[1]["service_data"]
     assert second["brightness"] == 120
     assert second["rgb_color"] == [1, 2, 3]
     assert second["color_temp"] == 200
     assert second["transition"] == 1.5
+    kelvin_call = fake_ha.ws_service_calls[4]["service_data"]
+    assert kelvin_call["color_temp_kelvin"] == 4000
 
 
 async def test_light_state_properties() -> None:
@@ -42,15 +46,30 @@ async def test_light_state_properties() -> None:
     try:
         light = ha.light("kitchen")
         light._apply_state(
-            {"state": "on", "attributes": {"brightness": 99, "rgb_color": [1, 2, 3]}}
+            {
+                "state": "on",
+                "attributes": {
+                    "brightness": 99,
+                    "rgb_color": [1, 2, 3],
+                    "color_temp_kelvin": 4000,
+                    "min_color_temp_kelvin": 2000,
+                    "max_color_temp_kelvin": 6500,
+                },
+            }
         )
         assert light.is_on
         assert light.brightness == 99
         assert light.rgb_color == (1, 2, 3)
+        assert light.kelvin == 4000
+        assert light.min_kelvin == 2000
+        assert light.max_kelvin == 6500
         light._apply_state({"state": "off", "attributes": {}})
         assert not light.is_on
         assert light.brightness is None
         assert light.rgb_color is None
+        assert light.kelvin is None
+        assert light.min_kelvin is None
+        assert light.max_kelvin is None
     finally:
         await ha.close()
 

@@ -32,6 +32,10 @@ class Light(Entity):
         """Register a listener for RGB color changes. Callback: ``(old, new)``."""
         return self._register_attr_listener("rgb_color", func)
 
+    def on_kelvin_change(self, func: Any) -> Any:
+        """Register a listener for color temperature (Kelvin) changes. Callback: ``(old, new)``."""
+        return self._register_attr_listener("color_temp_kelvin", func)
+
     # ------------------------------------------------------------------ state
     @property
     def is_on(self) -> bool:
@@ -42,6 +46,24 @@ class Light(Entity):
     def brightness(self) -> int | None:
         """Current brightness (0–255) or ``None`` if unsupported/unknown."""
         value = self.attributes.get("brightness")
+        return int(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def min_kelvin(self) -> int | None:
+        """Minimum supported color temperature in Kelvin, or ``None``."""
+        value = self.attributes.get("min_color_temp_kelvin")
+        return int(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def max_kelvin(self) -> int | None:
+        """Maximum supported color temperature in Kelvin, or ``None``."""
+        value = self.attributes.get("max_color_temp_kelvin")
+        return int(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def kelvin(self) -> int | None:
+        """Current color temperature in Kelvin, or ``None``."""
+        value = self.attributes.get("color_temp_kelvin")
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
@@ -59,6 +81,7 @@ class Light(Entity):
         brightness: int | None = None,
         rgb_color: tuple[int, int, int] | list[int] | None = None,
         color_temp: int | None = None,
+        kelvin: int | None = None,
         transition: float | None = None,
         **extra: Any,
     ) -> None:
@@ -70,6 +93,8 @@ class Light(Entity):
             data["rgb_color"] = list(rgb_color)
         if color_temp is not None:
             data["color_temp"] = int(color_temp)
+        if kelvin is not None:
+            data["color_temp_kelvin"] = int(kelvin)
         if transition is not None:
             data["transition"] = transition
         await self.call_service("turn_on", data or None)

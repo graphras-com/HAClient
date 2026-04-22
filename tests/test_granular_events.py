@@ -318,6 +318,23 @@ async def test_light_on_color_change(client: HAClient, fake_ha: FakeHA) -> None:
     assert captured == [([0, 255, 0], [255, 0, 0])]
 
 
+async def test_light_on_kelvin_change(client: HAClient, fake_ha: FakeHA) -> None:
+    light = client.light("kitchen")
+    captured: list[tuple[Any, Any]] = []
+
+    @light.on_kelvin_change
+    def handler(old: Any, new: Any) -> None:
+        captured.append((old, new))
+
+    await fake_ha.push_state_changed(
+        "light.kitchen",
+        {"state": "on", "attributes": {"color_temp_kelvin": 5000}},
+        {"state": "on", "attributes": {"color_temp_kelvin": 3000}},
+    )
+    await asyncio.sleep(0.05)
+    assert captured == [(3000, 5000)]
+
+
 # ============================================================ Switch
 
 
