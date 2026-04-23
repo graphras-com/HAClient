@@ -240,6 +240,12 @@ ruff check .
 mypy ha_client/
 ```
 
+## Acknowledgements
+
+ha-client is built on top of excellent open-source software. See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list of
+third-party dependencies and their licenses.
+
 ## License
 
 Apache 2.0 – see `LICENSE` for details.
