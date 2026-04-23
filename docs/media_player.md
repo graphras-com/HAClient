@@ -1,8 +1,8 @@
 # Media Player
 
-`ha_client.domains.media_player.MediaPlayer` — domain: `"media_player"`
+`haclient.domains.media_player.MediaPlayer` — domain: `"media_player"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity).
+Inherits from [`Entity`](base.md#hacliententityentity).
 
 ## Properties
 

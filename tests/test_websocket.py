@@ -8,14 +8,14 @@ from typing import Any
 import pytest
 from aiohttp import web
 
-from ha_client.exceptions import (
+from haclient.exceptions import (
     AuthenticationError,
     CommandError,
     ConnectionClosedError,
     HAClientError,
 )
-from ha_client.exceptions import TimeoutError as HATimeoutError
-from ha_client.websocket import WebSocketClient
+from haclient.exceptions import TimeoutError as HATimeoutError
+from haclient.websocket import WebSocketClient
 
 from .fake_ha import FakeHA
 

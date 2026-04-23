@@ -6,7 +6,7 @@ from typing import Any
 
 from aiohttp import web
 
-from ha_client import HAClient
+from haclient import HAClient
 
 from .fake_ha import FakeHA
 

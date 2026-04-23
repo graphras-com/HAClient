@@ -1,8 +1,8 @@
 # Climate
 
-`ha_client.domains.climate.Climate` — domain: `"climate"`
+`haclient.domains.climate.Climate` — domain: `"climate"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity).
+Inherits from [`Entity`](base.md#hacliententityentity).
 
 ## Properties
 

@@ -1,6 +1,6 @@
 """Thin async wrapper around the Home Assistant REST API.
 
-Only the endpoints needed by :class:`ha_client.client.HAClient` are exposed:
+Only the endpoints needed by :class:`haclient.client.HAClient` are exposed:
 
 * ``GET  /api/``              – ping / connectivity check
 * ``GET  /api/states``        – fetch all states

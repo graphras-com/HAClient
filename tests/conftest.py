@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the ha_client test suite."""
+"""Shared pytest fixtures for the haclient test suite."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 import pytest
 import pytest_asyncio
 
-from ha_client import HAClient
+from haclient import HAClient
 
 from .fake_ha import FakeHA
 

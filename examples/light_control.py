@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 
-from ha_client import HAClient
+from haclient import HAClient
 
 
 async def main() -> None:

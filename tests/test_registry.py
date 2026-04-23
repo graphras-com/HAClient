@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from ha_client import HAClient
-from ha_client.exceptions import EntityNotFoundError
-from ha_client.registry import EntityRegistry
+from haclient import HAClient
+from haclient.exceptions import EntityNotFoundError
+from haclient.registry import EntityRegistry
 
 
 def test_resolve_short_and_full_name() -> None:
@@ -28,7 +28,7 @@ def test_register_and_lookup() -> None:
     client = HAClient("http://x", "t")
     client.registry = reg  # swap the registry so Light registers here
 
-    from ha_client import Light
+    from haclient import Light
 
     light = Light("light.kitchen", client)
     assert reg.get("light.kitchen") is light

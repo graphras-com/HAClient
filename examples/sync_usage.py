@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 
-from ha_client import SyncHAClient
+from haclient import SyncHAClient
 
 
 def main() -> None:

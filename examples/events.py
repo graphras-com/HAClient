@@ -6,7 +6,7 @@ import asyncio
 import os
 from typing import Any
 
-from ha_client import HAClient
+from haclient import HAClient
 
 
 async def main() -> None:

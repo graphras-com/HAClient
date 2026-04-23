@@ -8,7 +8,7 @@ import threading
 import pytest
 import pytest_asyncio
 
-from ha_client import SyncHAClient
+from haclient import SyncHAClient
 
 from .fake_ha import FakeHA
 
@@ -86,7 +86,7 @@ async def test_sync_proxy_passes_non_coroutine_attrs(fake_ha: FakeHA) -> None:
 
 def test_sync_client_rejects_non_awaitable_submit() -> None:
     """_LoopThread.submit should reject plain values."""
-    from ha_client.sync import _LoopThread
+    from haclient.sync import _LoopThread
 
     lt = _LoopThread()
     try:

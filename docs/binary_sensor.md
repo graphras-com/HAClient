@@ -1,8 +1,8 @@
 # Binary Sensor
 
-`ha_client.domains.binary_sensor.BinarySensor` — domain: `"binary_sensor"`
+`haclient.domains.binary_sensor.BinarySensor` — domain: `"binary_sensor"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity). Read-only.
+Inherits from [`Entity`](base.md#hacliententityentity). Read-only.
 
 ## Properties
 

@@ -4,7 +4,7 @@ The fake is implemented with :mod:`aiohttp` so the production client exercises
 its real code paths (TCP sockets, JSON framing, auth handshake, etc.) against
 a deterministic server, without requiring a running Home Assistant instance.
 
-Only the surface area actually used by :mod:`ha_client` is implemented. The
+Only the surface area actually used by :mod:`haclient` is implemented. The
 fake is intentionally explicit – test cases can set ``server.handler`` to
 override command behaviour or push arbitrary events.
 """
@@ -220,7 +220,7 @@ class FakeHA:
         """Push an ``event`` to every WS currently subscribed to ``event_type``.
 
         Each event is wrapped in the standard ``{"type": "event", "event": ...}``
-        envelope expected by :class:`ha_client.websocket.WebSocketClient`.
+        envelope expected by :class:`haclient.websocket.WebSocketClient`.
         """
         for ws in self.connections:
             if ws.closed:

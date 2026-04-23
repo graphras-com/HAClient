@@ -27,11 +27,11 @@ Every change MUST include **all** of the following:
 
 - [ ] **Tests** — new or updated tests covering the change with **≥ 95% coverage** for affected modules. Verify with:
   ```bash
-  pytest --cov=ha_client --cov-report=term-missing --cov-fail-under=95
+  pytest --cov=haclient --cov-report=term-missing --cov-fail-under=95
   ```
 - [ ] **Documentation** — update relevant files in `docs/` to reflect the change (new features get a new or updated doc page).
 - [ ] **README.md** — update the project README if the change affects public API, installation, usage examples, or feature list.
-- [ ] **Lint & type-check pass** — `ruff check .` and `mypy ha_client/` must be clean.
+- [ ] **Lint & type-check pass** — `ruff check .` and `mypy src/haclient/` must be clean.
 
 ## Setup
 
@@ -49,10 +49,10 @@ Python 3.11+ required (`.python-version` pins 3.11).
 ruff check .
 
 # Type-check (strict mode)
-mypy ha_client/
+mypy src/haclient/
 
 # Tests with coverage (target ≥95%)
-pytest --cov=ha_client --cov-report=term-missing --cov-fail-under=95
+pytest --cov=haclient --cov-report=term-missing --cov-fail-under=95
 
 # Single test file
 pytest tests/test_client.py
@@ -61,17 +61,17 @@ pytest tests/test_client.py
 pytest tests/test_client.py::test_name -x
 ```
 
-Run order: `ruff check .` → `mypy ha_client/` → `pytest`
+Run order: `ruff check .` → `mypy src/haclient/` → `pytest`
 
 ## Architecture
 
-- `ha_client/client.py` — `HAClient`, the main async facade (REST + WebSocket)
-- `ha_client/websocket.py` — low-level WS with auth, keepalive, auto-reconnect
-- `ha_client/rest.py` — REST API client
-- `ha_client/registry.py` — entity registry (state tracking)
-- `ha_client/entity.py` — base `Entity` with state-change dispatch
-- `ha_client/sync.py` — `SyncHAClient`, blocking wrapper running event loop in background thread
-- `ha_client/domains/` — domain entity classes (`MediaPlayer`, `Light`, `Switch`, `Climate`, `Cover`, `Sensor`, `BinarySensor`)
+- `src/haclient/client.py` — `HAClient`, the main async facade (REST + WebSocket)
+- `src/haclient/websocket.py` — low-level WS with auth, keepalive, auto-reconnect
+- `src/haclient/rest.py` — REST API client
+- `src/haclient/registry.py` — entity registry (state tracking)
+- `src/haclient/entity.py` — base `Entity` with state-change dispatch
+- `src/haclient/sync.py` — `SyncHAClient`, blocking wrapper running event loop in background thread
+- `src/haclient/domains/` — domain entity classes (`MediaPlayer`, `Light`, `Switch`, `Climate`, `Cover`, `Sensor`, `BinarySensor`)
 
 ## Testing
 
@@ -83,5 +83,5 @@ Run order: `ruff check .` → `mypy ha_client/` → `pytest`
 
 - Ruff line length: 100
 - Ruff rules: E, W, F, I (isort), B (bugbear, B008 ignored), UP, C4, SIM
-- mypy strict mode on `ha_client/`; tests are exempt from `disallow_untyped_defs`
+- mypy strict mode on `src/haclient/`; tests are exempt from `disallow_untyped_defs`
 - Build backend: hatchling

@@ -1,8 +1,8 @@
 # Light
 
-`ha_client.domains.light.Light` — domain: `"light"`
+`haclient.domains.light.Light` — domain: `"light"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity).
+Inherits from [`Entity`](base.md#hacliententityentity).
 
 ## Properties
 

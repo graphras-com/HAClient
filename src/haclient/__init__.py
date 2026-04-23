@@ -10,8 +10,8 @@ See the README for usage examples.
 
 from __future__ import annotations
 
-from .client import HAClient
-from .domains import (
+from haclient.client import HAClient
+from haclient.domains import (
     BinarySensor,
     Climate,
     Cover,
@@ -22,8 +22,8 @@ from .domains import (
     Sensor,
     Switch,
 )
-from .entity import Entity
-from .exceptions import (
+from haclient.entity import Entity
+from haclient.exceptions import (
     AuthenticationError,
     CommandError,
     ConnectionClosedError,
@@ -32,8 +32,8 @@ from .exceptions import (
     TimeoutError,
     UnsupportedOperationError,
 )
-from .registry import EntityRegistry
-from .sync import SyncHAClient
+from haclient.registry import EntityRegistry
+from haclient.sync import SyncHAClient
 
 __all__ = [
     "AuthenticationError",
