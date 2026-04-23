@@ -1,6 +1,6 @@
 # HAClient Documentation
 
-API reference for `ha_client` — an async-first Python client for Home Assistant.
+API reference for `haclient` — an async-first Python client for Home Assistant.
 
 ## Core Library
 

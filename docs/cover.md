@@ -1,8 +1,8 @@
 # Cover
 
-`ha_client.domains.cover.Cover` — domain: `"cover"`
+`haclient.domains.cover.Cover` — domain: `"cover"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity).
+Inherits from [`Entity`](base.md#hacliententityentity).
 
 ## Properties
 

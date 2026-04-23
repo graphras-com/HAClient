@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ha-client"
+name = "haclient"
 version = "0.1.0"
 description = "Async-first, high-level Python client for Home Assistant (REST + WebSocket)."
 readme = "README.md"
@@ -37,10 +37,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anomalyco/HAClient"
+Homepage = "https://github.com/graphras-com/HaClient"
 
 [tool.hatch.build.targets.wheel]
-packages = ["ha_client"]
+packages = ["src/haclient"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -50,7 +50,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["ha_client"]
+source = ["haclient"]
 branch = true
 
 [tool.coverage.report]

@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from ha_client import HAClient
-from ha_client.client import _derive_ws_url
-from ha_client.exceptions import HAClientError
+from haclient import HAClient
+from haclient.client import _derive_ws_url
+from haclient.exceptions import HAClientError
 
 from .fake_ha import FakeHA
 
@@ -81,7 +81,7 @@ async def test_domain_accessor_type_conflict(client: HAClient) -> None:
     client.light("kitchen")
     with pytest.raises(HAClientError):
         # Already registered as Light; requesting Switch with same entity id fails.
-        from ha_client import Switch
+        from haclient import Switch
 
         client._get_or_create("light", "kitchen", Switch)
 
@@ -127,7 +127,7 @@ async def test_call_service_via_rest_fallback(fake_ha: FakeHA) -> None:
 
 async def test_invalid_entity_id_direct_construction() -> None:
     ha = HAClient("http://x", "t")
-    from ha_client import Light
+    from haclient import Light
 
     with pytest.raises(ValueError):
         Light("kitchen", ha)  # missing domain
@@ -155,7 +155,7 @@ async def test_connect_primes_already_registered_entity(fake_ha: FakeHA) -> None
     ]
     ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
     # Pre-register the light before connect.
-    from ha_client import Light
+    from haclient import Light
 
     light = Light("light.kitchen", ha)
     try:

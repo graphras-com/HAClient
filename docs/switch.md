@@ -1,8 +1,8 @@
 # Switch
 
-`ha_client.domains.switch.Switch` — domain: `"switch"`
+`haclient.domains.switch.Switch` — domain: `"switch"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity).
+Inherits from [`Entity`](base.md#hacliententityentity).
 
 ## Properties
 

@@ -1,8 +1,8 @@
 # Sensor
 
-`ha_client.domains.sensor.Sensor` — domain: `"sensor"`
+`haclient.domains.sensor.Sensor` — domain: `"sensor"`
 
-Inherits from [`Entity`](base.md#ha_cliententityentity). Read-only.
+Inherits from [`Entity`](base.md#hacliententityentity). Read-only.
 
 ## Properties
 

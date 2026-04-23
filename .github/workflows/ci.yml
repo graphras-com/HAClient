@@ -67,7 +67,7 @@ jobs:
     with:
       python-versions: ${{ vars.CI_PYTHON_TEST_VERSIONS || '["3.11","3.12"]' }}
       install-spec: ${{ vars.CI_PYTHON_INSTALL_SPEC || '.[dev]' }}
-      coverage-target: ${{ vars.CI_PYTHON_COVERAGE_TARGET || 'ha_client' }}
+      coverage-target: ${{ vars.CI_PYTHON_COVERAGE_TARGET || 'haclient' }}
       coverage-threshold: ${{ fromJSON(vars.CI_PYTHON_COVERAGE_THRESHOLD || '95') }}
 
   # ── Security ──────────────────────────────────────────────────────

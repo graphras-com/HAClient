@@ -1,6 +1,6 @@
 # Base Library
 
-## `ha_client.client.HAClient`
+## `haclient.client.HAClient`
 
 High-level orchestrator combining REST and WebSocket clients.
 
@@ -61,7 +61,7 @@ async with HAClient(url, token) as client:
 
 ---
 
-## `ha_client.sync.SyncHAClient`
+## `haclient.sync.SyncHAClient`
 
 Blocking wrapper around `HAClient`. Runs a dedicated event loop in a background thread.
 
@@ -89,7 +89,7 @@ with SyncHAClient(url, token) as client:
 
 ---
 
-## `ha_client.rest.RestClient`
+## `haclient.rest.RestClient`
 
 HTTP REST API client.
 
@@ -118,7 +118,7 @@ RestClient(
 
 ---
 
-## `ha_client.websocket.WebSocketClient`
+## `haclient.websocket.WebSocketClient`
 
 WebSocket API client with auto-reconnect.
 
@@ -163,7 +163,7 @@ EventHandler = Callable[[dict[str, Any]], Awaitable[None] | None]
 
 ---
 
-## `ha_client.entity.Entity`
+## `haclient.entity.Entity`
 
 Base class for all domain entities.
 
@@ -215,7 +215,7 @@ ValueChangeHandler = Callable[[Any, Any], Any]
 
 ---
 
-## `ha_client.registry.EntityRegistry`
+## `haclient.registry.EntityRegistry`
 
 Entity store with lookup and domain filtering.
 
@@ -235,7 +235,7 @@ Supports `__contains__`, `__iter__`, `__len__`.
 
 ---
 
-## `ha_client.exceptions`
+## `haclient.exceptions`
 
 | Exception | Base | Description |
 |---|---|---|

@@ -9,7 +9,7 @@ Example
 -------
 .. code-block:: python
 
-    from ha_client import SyncHAClient
+    from haclient import SyncHAClient
 
     ha = SyncHAClient("http://localhost:8123", token="...")
     ha.connect()
@@ -36,7 +36,7 @@ class _LoopThread:
 
     def __init__(self) -> None:
         self.loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._run, name="ha-client-sync-loop", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="haclient-sync-loop", daemon=True)
         self._started = threading.Event()
         self._thread.start()
         self._started.wait()

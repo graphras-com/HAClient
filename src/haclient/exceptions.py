@@ -8,7 +8,7 @@ from __future__ import annotations
 
 
 class HAClientError(Exception):
-    """Base class for all exceptions raised by ``ha_client``."""
+    """Base class for all exceptions raised by ``haclient``."""
 
 
 class AuthenticationError(HAClientError):

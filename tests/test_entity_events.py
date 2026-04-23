@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from ha_client import HAClient
+from haclient import HAClient
 
 from .fake_ha import FakeHA
 

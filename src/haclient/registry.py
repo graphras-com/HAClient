@@ -1,8 +1,8 @@
 """Entity registry.
 
-The registry stores :class:`ha_client.entity.Entity` instances keyed by their
+The registry stores :class:`haclient.entity.Entity` instances keyed by their
 ``entity_id`` and supports lookup by short (object) name scoped to a domain.
-It is owned by each :class:`ha_client.client.HAClient` instance to avoid the
+It is owned by each :class:`haclient.client.HAClient` instance to avoid the
 pitfalls of global singletons in test and multi-client scenarios.
 """
 

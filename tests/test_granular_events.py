@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from ha_client import HAClient
-from ha_client.domains.media_player import NowPlaying
+from haclient import HAClient
+from haclient.domains.media_player import NowPlaying
 
 from .fake_ha import FakeHA
 

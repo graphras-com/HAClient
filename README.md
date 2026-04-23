@@ -1,4 +1,4 @@
-# ha-client
+# HaClient
 
 An async-first, high-level Python client for [Home Assistant](https://www.home-assistant.io/).
 It talks to a Home Assistant instance over both the WebSocket API (for live
@@ -31,7 +31,7 @@ async with HAClient("http://homeassistant.local:8123", token=TOKEN) as ha:
 ## Installation
 
 ```bash
-pip install ha-client
+pip install haclient
 ```
 
 From source (with dev extras):
@@ -44,7 +44,7 @@ uv pip install -e ".[dev]"
 
 ```python
 import asyncio
-from ha_client import HAClient
+from haclient import HAClient
 
 
 async def main() -> None:
@@ -171,7 +171,7 @@ recursively descends into expandable nodes and returns a flat list of
 ### Synchronous wrapper
 
 ```python
-from ha_client import SyncHAClient
+from haclient import SyncHAClient
 
 with SyncHAClient("http://homeassistant.local:8123", token=TOKEN) as ha:
     player = ha.media_player("livingroom")
@@ -203,7 +203,7 @@ re-established transparently.
 ## Project layout
 
 ```
-ha_client/
+src/haclient/
   __init__.py
   client.py          # HAClient (high-level facade)
   websocket.py       # WebSocketClient (low-level WS + reconnect)
@@ -233,16 +233,16 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 
 # Run the full test suite with coverage (target: ≥ 90 %).
-pytest --cov=ha_client --cov-report=term-missing
+pytest --cov=haclient --cov-report=term-missing
 
 # Lint and type-check.
 ruff check .
-mypy ha_client/
+mypy src/haclient/
 ```
 
 ## Acknowledgements
 
-ha-client is built on top of excellent open-source software. See
+HaClient is built on top of excellent open-source software. See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the full list of
 third-party dependencies and their licenses.
 

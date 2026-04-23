@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from ha_client import HAClient
+from haclient import HAClient
 
 from .fake_ha import FakeHA
 

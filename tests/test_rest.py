@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from ha_client.exceptions import AuthenticationError, HAClientError
-from ha_client.rest import RestClient
+from haclient.exceptions import AuthenticationError, HAClientError
+from haclient.rest import RestClient
 
 from .fake_ha import FakeHA
 

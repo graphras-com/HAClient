@@ -7,7 +7,7 @@ import os
 
 from dotenv import load_dotenv
 
-from ha_client import HAClient
+from haclient import HAClient
 
 load_dotenv()
 

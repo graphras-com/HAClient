@@ -1,6 +1,6 @@
 """Base :class:`Entity` implementation.
 
-Entities are bound to an :class:`ha_client.client.HAClient` instance and
+Entities are bound to an :class:`haclient.client.HAClient` instance and
 automatically receive state updates from WebSocket ``state_changed`` events.
 """
 

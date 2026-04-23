@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ha-client uses the following third-party libraries. Each is listed with its
+HaClient uses the following third-party libraries. Each is listed with its
 license type and project URL.
 
 ## Runtime Dependencies
