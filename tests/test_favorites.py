@@ -33,8 +33,8 @@ def _make_tree() -> dict[str, Any]:
                 "media_content_type": "track",
                 "can_expand": False,
                 "can_play": True,
-        },
-        {
+            },
+            {
                 "title": "Single Track dup",
                 "media_content_id": "track://1",
                 "media_content_type": "track",

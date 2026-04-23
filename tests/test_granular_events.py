@@ -245,8 +245,6 @@ async def test_media_player_on_stop(client: HAClient, fake_ha: FakeHA) -> None:
     assert captured == [("playing", "idle")]
 
 
-
-
 async def test_light_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
     light = client.light("kitchen")
     captured: list[tuple[Any, Any]] = []
@@ -332,8 +330,6 @@ async def test_light_on_kelvin_change(client: HAClient, fake_ha: FakeHA) -> None
     assert captured == [(3000, 5000)]
 
 
-
-
 async def test_switch_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
     switch = client.switch("pump")
     captured: list[tuple[Any, Any]] = []
@@ -368,8 +364,6 @@ async def test_switch_on_turn_off(client: HAClient, fake_ha: FakeHA) -> None:
     assert captured == [("on", "off")]
 
 
-
-
 async def test_binary_sensor_on_turn_on(client: HAClient, fake_ha: FakeHA) -> None:
     sensor = client.binary_sensor("motion")
     captured: list[tuple[Any, Any]] = []
@@ -402,8 +396,6 @@ async def test_binary_sensor_on_turn_off(client: HAClient, fake_ha: FakeHA) -> N
     )
     await asyncio.sleep(0.05)
     assert captured == [("on", "off")]
-
-
 
 
 async def test_cover_on_open(client: HAClient, fake_ha: FakeHA) -> None:
@@ -455,8 +447,6 @@ async def test_cover_on_position_change(client: HAClient, fake_ha: FakeHA) -> No
     )
     await asyncio.sleep(0.05)
     assert captured == [(50, 75)]
-
-
 
 
 async def test_climate_on_hvac_mode_change(client: HAClient, fake_ha: FakeHA) -> None:
@@ -527,8 +517,6 @@ async def test_climate_on_target_temperature_change(client: HAClient, fake_ha: F
     assert captured == [(22.0, 24.0)]
 
 
-
-
 async def test_sensor_on_value_change(client: HAClient, fake_ha: FakeHA) -> None:
     sensor = client.sensor("temperature")
     captured: list[tuple[Any, Any]] = []
@@ -563,8 +551,6 @@ async def test_sensor_on_value_change_not_fired_when_same(
     )
     await asyncio.sleep(0.05)
     assert captured == []
-
-
 
 
 async def test_async_granular_handler(client: HAClient, fake_ha: FakeHA) -> None:

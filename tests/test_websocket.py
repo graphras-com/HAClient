@@ -269,6 +269,7 @@ async def test_close_cancels_pending_request(fake_ha: FakeHA) -> None:
 async def test_reader_handles_non_json_text_frame(fake_ha: FakeHA) -> None:
     ws = await _make_ws(fake_ha, reconnect=False)
     try:
+
         async def send_garbage(server: FakeHA, server_ws: Any, msg: dict[str, Any]) -> None:
             await server_ws.send_str("not-json")
             await server_ws.send_json(

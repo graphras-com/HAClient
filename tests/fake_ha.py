@@ -55,7 +55,6 @@ class FakeHA:
         self.reject_auth: bool = False
         self.drop_on_command: str | None = None
 
-
     async def start(self) -> str:
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()
