@@ -1,0 +1,3 @@
+# Entity
+
+::: haclient.entity

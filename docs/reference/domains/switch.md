@@ -1,0 +1,3 @@
+# Switch
+
+::: haclient.domains.switch
