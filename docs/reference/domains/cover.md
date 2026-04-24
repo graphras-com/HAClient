@@ -1,0 +1,3 @@
+# Cover
+
+::: haclient.domains.cover

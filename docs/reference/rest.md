@@ -1,0 +1,3 @@
+# REST
+
+::: haclient.rest

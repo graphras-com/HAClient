@@ -1,0 +1,3 @@
+# Sensor
+
+::: haclient.domains.sensor
