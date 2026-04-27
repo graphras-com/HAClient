@@ -190,6 +190,33 @@ class FakeHA:
         if mtype == "media_player/browse_media":
             await ws.send_json({"id": mid, "type": "result", "success": True, "result": {}})
             return
+        if mtype == "timer/create":
+            name = msg.get("name", "")
+            duration = msg.get("duration", "00:01:00")
+            await ws.send_json(
+                {
+                    "id": mid,
+                    "type": "result",
+                    "success": True,
+                    "result": {
+                        "id": name,
+                        "name": name,
+                        "duration": duration,
+                        "restore": False,
+                    },
+                }
+            )
+            return
+        if mtype == "timer/delete":
+            await ws.send_json(
+                {
+                    "id": mid,
+                    "type": "result",
+                    "success": True,
+                    "result": None,
+                }
+            )
+            return
 
         await ws.send_json(
             {
