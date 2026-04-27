@@ -18,6 +18,12 @@ class Timer(Entity):
     Actions use intent-specific names: ``start``, ``pause``, ``cancel``,
     ``finish``, ``change``.
 
+    If the timer helper does not yet exist in Home Assistant, it is created
+    automatically via the ``timer/create`` WebSocket command the first time
+    an action method (``start``, ``pause``, etc.) is called.  This means
+    users never need to pre-create timer helpers — the library handles it
+    transparently.
+
     In addition to the generic ``on_idle`` listener (which fires for both
     natural expiry and explicit cancellation), the timer provides
     ``on_finished`` and ``on_cancelled`` listeners that fire only for the
@@ -35,6 +41,7 @@ class Timer(Entity):
         super().__init__(entity_id, client)
         self._finished_listeners: list[ValueChangeHandler] = []
         self._cancelled_listeners: list[ValueChangeHandler] = []
+        self._ensured: bool = False
 
     # -- State properties --
 
@@ -141,6 +148,51 @@ class Timer(Entity):
             return _parse_duration_to_seconds(str(raw))
         return None
 
+    # -- Lifecycle --
+
+    async def _ensure_exists(self) -> None:
+        """Create the timer helper in Home Assistant if it does not exist.
+
+        Uses the ``timer/create`` WebSocket command.  The call is idempotent:
+        once the helper has been confirmed (either via the initial state fetch
+        or a prior ``_ensure_exists`` call), subsequent invocations are no-ops.
+
+        The object-id is extracted from the ``entity_id`` (the part after
+        ``timer.``).
+        """
+        if self._ensured or self.state != "unknown":
+            return
+        object_id = self.entity_id.split(".", 1)[1]
+        await self._client.ws.send_command(
+            {
+                "type": "timer/create",
+                "name": object_id,
+                "duration": "00:01:00",
+            }
+        )
+        self._ensured = True
+
+    async def delete(self) -> None:
+        """Delete the timer helper from Home Assistant.
+
+        Uses the ``timer/delete`` WebSocket command.  After deletion the
+        entity's ``_ensured`` flag is reset so that a subsequent action
+        will re-create the helper.
+
+        Raises
+        ------
+        CommandError
+            If the timer does not exist in Home Assistant.
+        """
+        object_id = self.entity_id.split(".", 1)[1]
+        await self._client.ws.send_command(
+            {
+                "type": "timer/delete",
+                "timer_id": object_id,
+            }
+        )
+        self._ensured = False
+
     # -- Actions --
 
     async def start(self, *, duration: str | None = None) -> None:
@@ -151,19 +203,23 @@ class Timer(Entity):
         duration : str or None, optional
             Override duration (e.g. ``"00:05:00"``).
         """
+        await self._ensure_exists()
         data: dict[str, Any] | None = {"duration": duration} if duration else None
         await self._call_service("start", data)
 
     async def pause(self) -> None:
         """Pause the timer."""
+        await self._ensure_exists()
         await self._call_service("pause")
 
     async def cancel(self) -> None:
         """Cancel the timer (returns to idle)."""
+        await self._ensure_exists()
         await self._call_service("cancel")
 
     async def finish(self) -> None:
         """Finish the timer immediately."""
+        await self._ensure_exists()
         await self._call_service("finish")
 
     async def change(self, *, duration: str) -> None:
@@ -174,6 +230,7 @@ class Timer(Entity):
         duration : str
             Duration to add/subtract (e.g. ``"00:01:00"`` or ``"-00:00:30"``).
         """
+        await self._ensure_exists()
         await self._call_service("change", {"duration": duration})
 
     # -- Listener decorators --
