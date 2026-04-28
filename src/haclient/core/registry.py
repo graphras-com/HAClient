@@ -1,9 +1,8 @@
-"""Entity registry.
+"""In-memory entity registry.
 
-The registry stores `Entity` instances keyed by their ``entity_id`` and
-supports lookup by short (object) name scoped to a domain. It is owned by
-each `HAClient` instance to avoid the pitfalls of global singletons in
-test and multi-client scenarios.
+The registry stores `Entity` instances keyed by their fully-qualified
+``entity_id`` and supports lookup by short object-id scoped to a domain.
+It is owned by each `HAClient` instance — there are no global singletons.
 """
 
 from __future__ import annotations
@@ -11,26 +10,20 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
-from .exceptions import EntityNotFoundError
+from haclient.exceptions import EntityNotFoundError
 
 if TYPE_CHECKING:
-    from .entity import Entity
+    from haclient.entity.base import Entity
 
 
 class EntityRegistry:
-    """In-memory mapping of ``entity_id`` to `Entity`.
-
-    Attributes
-    ----------
-    _entities : dict
-        Internal mapping of entity id strings to entity instances.
-    """
+    """Mapping of ``entity_id`` to `Entity`."""
 
     def __init__(self) -> None:
         self._entities: dict[str, Entity] = {}
 
     def register(self, entity: Entity) -> None:
-        """Register ``entity`` (overwriting any existing entry)."""
+        """Register ``entity``, overwriting any existing entry."""
         self._entities[entity.entity_id] = entity
 
     def unregister(self, entity_id: str) -> None:
@@ -42,7 +35,7 @@ class EntityRegistry:
         return self._entities.get(entity_id)
 
     def require(self, entity_id: str) -> Entity:
-        """Return the entity for *entity_id* or raise `EntityNotFoundError`.
+        """Return the entity for ``entity_id`` or raise.
 
         Parameters
         ----------
@@ -57,7 +50,7 @@ class EntityRegistry:
         Raises
         ------
         EntityNotFoundError
-            If no entity is registered for *entity_id*.
+            If no entity is registered under ``entity_id``.
         """
         entity = self._entities.get(entity_id)
         if entity is None:
@@ -83,16 +76,14 @@ class EntityRegistry:
         Parameters
         ----------
         domain : str
-            The Home Assistant domain (e.g. ``"media_player"``).
+            The HA domain.
         name : str
-            The short object-id (e.g. ``"livingroom"``).  Must **not**
-            contain a dot; pass the short name only, not the
-            fully-qualified entity id.
+            The short object-id (no dot allowed).
 
         Returns
         -------
         str
-            The fully-qualified entity id (``"{domain}.{name}"``).
+            The fully-qualified entity id.
 
         Raises
         ------
@@ -108,17 +99,6 @@ class EntityRegistry:
         return f"{domain}.{name}"
 
     def in_domain(self, domain: str) -> list[Entity]:
-        """Return all registered entities belonging to *domain*.
-
-        Parameters
-        ----------
-        domain : str
-            The Home Assistant domain (e.g. ``"light"``).
-
-        Returns
-        -------
-        list of Entity
-            Entities whose id starts with ``{domain}.``.
-        """
+        """Return all entities whose id starts with ``{domain}.``."""
         prefix = f"{domain}."
         return [e for eid, e in self._entities.items() if eid.startswith(prefix)]

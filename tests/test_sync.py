@@ -24,8 +24,8 @@ def _run_sync_in_thread(fake_ha: FakeHA) -> dict[str, object]:
     results: dict[str, object] = {}
 
     def run() -> None:
-        with SyncHAClient(
-            fake_ha.base_url, fake_ha.token, ping_interval=0, request_timeout=3.0
+        with SyncHAClient.from_url(
+            fake_ha.base_url, token=fake_ha.token, ping_interval=0, request_timeout=3.0
         ) as client:
             mp = client.media_player("livingroom")
             mp.play()
@@ -49,7 +49,7 @@ async def test_sync_client_basic_operations(fake_ha: FakeHA) -> None:
 
 async def test_sync_client_refresh(fake_ha: FakeHA) -> None:
     def run() -> None:
-        client = SyncHAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
         try:
             client.connect()
             client.refresh_all()
@@ -61,7 +61,7 @@ async def test_sync_client_refresh(fake_ha: FakeHA) -> None:
 
 async def test_sync_proxy_passes_non_coroutine_attrs(fake_ha: FakeHA) -> None:
     def run() -> str:
-        client = SyncHAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
         try:
             client.connect()
             light = client.light("kitchen")
@@ -90,7 +90,7 @@ def test_sync_client_rejects_non_awaitable_submit() -> None:
 
 async def test_sync_client_all_accessors(fake_ha: FakeHA) -> None:
     def run() -> dict[str, str]:
-        client = SyncHAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
         try:
             client.connect()
             names = {
@@ -126,10 +126,10 @@ async def test_sync_client_all_accessors(fake_ha: FakeHA) -> None:
 
 async def test_sync_create_scene(fake_ha: FakeHA) -> None:
     def run() -> str:
-        client = SyncHAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
         try:
             client.connect()
-            scene = client.create_scene(
+            scene = client.scene.create(
                 "romantic",
                 {"light.ceiling": {"state": "on", "brightness": 80}},
             )
@@ -143,10 +143,33 @@ async def test_sync_create_scene(fake_ha: FakeHA) -> None:
 
 async def test_sync_apply_scene(fake_ha: FakeHA) -> None:
     def run() -> None:
-        client = SyncHAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
         try:
             client.connect()
-            client.apply_scene({"light.ceiling": {"state": "on"}})
+            client.scene.apply({"light.ceiling": {"state": "on"}})
+        finally:
+            client.close()
+
+    await asyncio.get_running_loop().run_in_executor(None, run)
+
+
+async def test_sync_listeners_and_generic_domain(fake_ha: FakeHA) -> None:
+    """Cover SyncHAClient.on_reconnect / on_disconnect / domain()."""
+
+    def run() -> None:
+        client = SyncHAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
+        try:
+            client.connect()
+            client.on_reconnect(lambda: None)
+            client.on_disconnect(lambda: None)
+            generic = client.domain("light")
+            assert generic("kitchen").entity_id == "light.kitchen"
+            assert generic["kitchen"].entity_id == "light.kitchen"
+            # Property accessor that returns a non-callable (e.g. spec).
+            assert generic.spec.name == "light"
+            # Sync timer accessor delegates to the timer domain.
+            t = client.timer("countdown")
+            assert t.entity_id == "timer.countdown"
         finally:
             client.close()
 

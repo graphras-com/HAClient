@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..entity import Entity
+from haclient.core.plugins import DomainSpec, register_domain
+from haclient.entity.base import Entity
 
 
 class Sensor(Entity):
@@ -17,69 +18,38 @@ class Sensor(Entity):
 
     domain = "sensor"
 
-    # -- Listener decorators --
+    # -- Listener decorators ------------------------------------------
 
     def on_value_change(self, func: Any) -> Any:
         """Register a listener for sensor value changes.
 
-        The callback receives the **state strings** directly (e.g.
-        ``"21.5"``, ``"22.0"``) — not the full HA state dictionaries.
-        This fires whenever the state string changes between events.
-
-        Use this instead of :meth:`~haclient.entity.Entity.on_state_change`
-        when you only care about the sensor's value and not the full state
-        object (attributes, timestamps, etc.).
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state_str: str | None,
-            new_state_str: str | None)``. Both arguments are raw state
-            strings (e.g. ``"22.5"``, ``"on"``), or ``None`` if the
-            previous/new state is absent.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
+        Receives the **state strings** directly (e.g. ``"21.5"``).
         """
         return self._register_state_value_listener(func)
 
-    # -- State properties --
+    # -- State properties ---------------------------------------------
 
     @property
     def unit_of_measurement(self) -> str | None:
-        """The unit of the sensor value, if provided by Home Assistant.
-
-        Returns
-        -------
-        str or None
-            The unit string (e.g. ``"°C"``).
-        """
+        """Unit of the sensor value, if provided."""
         value = self.attributes.get("unit_of_measurement")
         return str(value) if value is not None else None
 
     @property
     def device_class(self) -> str | None:
-        """The device class (e.g. ``"temperature"``).
-
-        Returns
-        -------
-        str or None
-            The device class string, or ``None`` if not set.
-        """
+        """Device class (e.g. ``"temperature"``)."""
         value = self.attributes.get("device_class")
         return str(value) if value is not None else None
 
     @property
     def value(self) -> float | str | None:
-        """Return the sensor value coerced to ``float`` if numeric.
+        """Sensor value coerced to ``float`` if numeric.
 
         Returns
         -------
         float or str or None
-            ``None`` if the state is ``"unknown"`` or ``"unavailable"``,
-            a ``float`` if the state is numeric, otherwise the raw string.
+            ``None`` if the state is ``"unknown"``/``"unavailable"``,
+            a ``float`` when numeric, otherwise the raw string.
         """
         if self.state in ("unknown", "unavailable"):
             return None
@@ -87,3 +57,7 @@ class Sensor(Entity):
             return float(self.state)
         except (TypeError, ValueError):
             return self.state
+
+
+SPEC: DomainSpec[Sensor] = register_domain(DomainSpec(name="sensor", entity_cls=Sensor))
+"""The `DomainSpec` registered with the shared `DomainRegistry`."""

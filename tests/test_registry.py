@@ -1,12 +1,11 @@
-"""Tests for the EntityRegistry and name resolution."""
+"""Tests for the `EntityRegistry` and name resolution."""
 
 from __future__ import annotations
 
 import pytest
 
-from haclient import HAClient
+from haclient import EntityRegistry, HAClient, Light
 from haclient.exceptions import EntityNotFoundError
-from haclient.registry import EntityRegistry
 
 
 def test_resolve_short_name() -> None:
@@ -28,19 +27,19 @@ def test_require_missing() -> None:
         reg.require("light.unknown")
 
 
-def test_register_and_lookup() -> None:
-    reg = EntityRegistry()
-    client = HAClient("http://x", "t")
-    client.registry = reg
-
-    from haclient import Light
-
-    light = Light("light.kitchen", client)
-    assert reg.get("light.kitchen") is light
-    assert "light.kitchen" in reg
-    assert len(reg) == 1
-    assert light in reg.in_domain("light")
-    reg.unregister("light.kitchen")
-    assert reg.get("light.kitchen") is None
-    reg.clear()
-    assert len(reg) == 0
+async def test_register_and_lookup() -> None:
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
+    try:
+        light = ha.light("kitchen")
+        assert isinstance(light, Light)
+        reg = ha.state.registry
+        assert reg.get("light.kitchen") is light
+        assert "light.kitchen" in reg
+        assert len(reg) == 1
+        assert light in reg.in_domain("light")
+        reg.unregister("light.kitchen")
+        assert reg.get("light.kitchen") is None
+        reg.clear()
+        assert len(reg) == 0
+    finally:
+        await ha.close()

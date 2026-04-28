@@ -1,9 +1,9 @@
 """Synchronous convenience wrapper around `HAClient`.
 
-The wrapper runs a dedicated event loop in a background thread and submits
-coroutines to it via `asyncio.run_coroutine_threadsafe`. This allows
-users in plain scripts / REPL sessions to consume the library without thinking
-about ``asyncio`` or risking event-loop conflicts (e.g. inside Jupyter).
+The wrapper runs a dedicated event loop in a background thread and
+submits coroutines to it via `asyncio.run_coroutine_threadsafe`. This
+allows users in plain scripts / REPL sessions to consume the library
+without thinking about ``asyncio``.
 
 Examples
 --------
@@ -11,11 +11,9 @@ Examples
 
     from haclient import SyncHAClient
 
-    ha = SyncHAClient("http://localhost:8123", token="...")
-    ha.connect()
-    player = ha.media_player("livingroom")
-    player.play()
-    ha.close()
+    with SyncHAClient.from_url("http://localhost:8123", token=TOKEN) as ha:
+        light = ha.light("kitchen")
+        light.set_brightness(200)
 """
 
 from __future__ import annotations
@@ -26,7 +24,9 @@ import threading
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
-from .client import HAClient
+from haclient.api import HAClient
+from haclient.config import ConnectionConfig, ServicePolicy
+from haclient.core.plugins import DomainAccessor
 
 T = TypeVar("T")
 
@@ -58,14 +58,14 @@ class _LoopThread:
                 self.loop.close()
 
     def submit(self, coro: Awaitable[T], *, timeout: float | None = None) -> T:
-        """Submit an awaitable to the background loop and block for the result.
+        """Submit an awaitable and block for the result.
 
         Parameters
         ----------
-        coro : Awaitable[T]
+        coro : Awaitable
             The awaitable to execute.
         timeout : float or None, optional
-            Maximum seconds to wait for the result.
+            Maximum seconds to wait.
 
         Returns
         -------
@@ -116,38 +116,93 @@ class _SyncProxy:
         return f"<Sync {self._target!r}>"
 
 
+class _SyncDomainAccessor:
+    """Sync wrapper around a `DomainAccessor`.
+
+    Returns sync proxies for entities and exposes the accessor's
+    operations as blocking calls.
+    """
+
+    def __init__(self, accessor: DomainAccessor[Any], loop_thread: _LoopThread) -> None:
+        object.__setattr__(self, "_accessor", accessor)
+        object.__setattr__(self, "_loop_thread", loop_thread)
+
+    def __call__(self, name: str) -> Any:
+        return _SyncProxy(self._accessor(name), self._loop_thread)
+
+    def __getitem__(self, name: str) -> Any:
+        return _SyncProxy(self._accessor[name], self._loop_thread)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._accessor, name)
+        if inspect.iscoroutinefunction(attr):
+            loop_thread = self._loop_thread
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                result = loop_thread.submit(attr(*args, **kwargs))
+                # Wrap entity returns in sync proxies for ergonomics.
+                if hasattr(result, "entity_id"):
+                    return _SyncProxy(result, loop_thread)
+                return result
+
+            wrapper.__name__ = attr.__name__
+            wrapper.__doc__ = attr.__doc__
+            return wrapper
+        return attr
+
+
 class SyncHAClient:
     """Synchronous counterpart of `HAClient`.
 
-    All public domain accessors are exposed as blocking calls. All async
-    methods of returned entities are automatically wrapped in a sync proxy
-    so consumers can call ``player.play()`` without ``await``.
-
     Parameters
     ----------
-    *args : Any
-        Positional arguments forwarded to `HAClient`.
-    **kwargs : Any
-        Keyword arguments forwarded to `HAClient`.
+    config : ConnectionConfig
+        Resolved connection settings.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        config: ConnectionConfig,
+        **kwargs: Any,
+    ) -> None:
         self._loop_thread = _LoopThread()
 
         async def _build() -> HAClient:
-            return HAClient(*args, **kwargs)
+            return HAClient(config, **kwargs)
 
         self._client: HAClient = self._loop_thread.submit(_build())
 
+    @classmethod
+    def from_url(
+        cls,
+        base_url: str,
+        *,
+        token: str,
+        ws_url: str | None = None,
+        reconnect: bool = True,
+        ping_interval: float = 30.0,
+        request_timeout: float = 30.0,
+        verify_ssl: bool = True,
+        service_policy: ServicePolicy = "auto",
+        domains: list[str] | None = None,
+        load_plugins: bool = True,
+    ) -> SyncHAClient:
+        """Build a `SyncHAClient` from a base URL and token."""
+        config = ConnectionConfig.from_url(
+            base_url,
+            token,
+            ws_url=ws_url,
+            reconnect=reconnect,
+            ping_interval=ping_interval,
+            request_timeout=request_timeout,
+            verify_ssl=verify_ssl,
+            service_policy=service_policy,
+        )
+        return cls(config, domains=domains, load_plugins=load_plugins)
+
     @property
     def client(self) -> HAClient:
-        """Return the underlying `HAClient` instance.
-
-        Returns
-        -------
-        HAClient
-            The wrapped async client.
-        """
+        """Return the underlying `HAClient` instance."""
         return self._client
 
     def connect(self) -> None:
@@ -170,184 +225,60 @@ class SyncHAClient:
 
     def refresh_all(self) -> None:
         """Refresh all registered entities synchronously."""
-        self._loop_thread.submit(self._client.refresh_all())
+        self._loop_thread.submit(self._client.state.refresh_all())
 
     def on_reconnect(
         self, handler: Callable[[], Awaitable[None] | None]
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register *handler* to be called after a successful reconnection.
-
-        Parameters
-        ----------
-        handler : callable
-            A sync or async callable taking no arguments.
-
-        Returns
-        -------
-        callable
-            The same *handler*, for use as a decorator.
-        """
+        """Register a reconnect listener."""
         return self._client.on_reconnect(handler)
 
     def on_disconnect(
         self, handler: Callable[[], Awaitable[None] | None]
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register *handler* to be called when the connection drops.
-
-        Parameters
-        ----------
-        handler : callable
-            A sync or async callable taking no arguments.
-
-        Returns
-        -------
-        callable
-            The same *handler*, for use as a decorator.
-        """
+        """Register a disconnect listener."""
         return self._client.on_disconnect(handler)
 
     # -- Domain accessors --
 
-    def media_player(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `MediaPlayer`.
+    def domain(self, name: str) -> _SyncDomainAccessor:
+        """Return a sync accessor for *name*."""
+        return _SyncDomainAccessor(self._client.domain(name), self._loop_thread)
 
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+    def media_player(self, name: str) -> Any:
+        """Return a sync proxy wrapping the async `MediaPlayer`."""
         return _SyncProxy(self._client.media_player(name), self._loop_thread)
 
     def light(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Light`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `Light`."""
         return _SyncProxy(self._client.light(name), self._loop_thread)
 
     def switch(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Switch`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `Switch`."""
         return _SyncProxy(self._client.switch(name), self._loop_thread)
 
     def climate(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Climate`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `Climate`."""
         return _SyncProxy(self._client.climate(name), self._loop_thread)
 
     def cover(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Cover`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `Cover`."""
         return _SyncProxy(self._client.cover(name), self._loop_thread)
 
     def sensor(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Sensor`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `Sensor`."""
         return _SyncProxy(self._client.sensor(name), self._loop_thread)
 
     def binary_sensor(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `BinarySensor`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
+        """Return a sync proxy wrapping the async `BinarySensor`."""
         return _SyncProxy(self._client.binary_sensor(name), self._loop_thread)
 
-    def scene(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Scene`.
+    @property
+    def scene(self) -> _SyncDomainAccessor:
+        """Return a sync scene accessor."""
+        return _SyncDomainAccessor(self._client.scene, self._loop_thread)
 
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
-        return _SyncProxy(self._client.scene(name), self._loop_thread)
-
-    def create_scene(
-        self,
-        scene_id: str,
-        entities: dict[str, dict[str, Any]],
-        *,
-        snapshot_entities: list[str] | None = None,
-    ) -> Any:
-        """Create a dynamic scene synchronously.
-
-        Parameters
-        ----------
-        scene_id : str
-            The object-id for the new scene.
-        entities : dict[str, dict[str, Any]]
-            Mapping of entity IDs to desired state/attribute dicts.
-        snapshot_entities : list of str or None, optional
-            Entity IDs whose current state should be captured.
-
-        Returns
-        -------
-        Any
-            A sync proxy wrapping the new `Scene`.
-        """
-        scene = self._loop_thread.submit(
-            self._client.create_scene(scene_id, entities, snapshot_entities=snapshot_entities)
-        )
-        return _SyncProxy(scene, self._loop_thread)
-
-    def apply_scene(
-        self,
-        entities: dict[str, dict[str, Any]],
-        *,
-        transition: float | None = None,
-    ) -> None:
-        """Apply entity states without creating a persistent scene.
-
-        Parameters
-        ----------
-        entities : dict[str, dict[str, Any]]
-            Mapping of entity IDs to desired state/attribute dicts.
-        transition : float or None, optional
-            Transition time in seconds.
-        """
-        self._loop_thread.submit(self._client.apply_scene(entities, transition=transition))
-
-    def timer(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Timer`.
-
-        Parameters
-        ----------
-        name : str
-            Short object-id (e.g. ``"livingroom"``).  The domain prefix
-            is added automatically.
-        """
-        return _SyncProxy(self._client.timer(name), self._loop_thread)
+    @property
+    def timer(self) -> _SyncDomainAccessor:
+        """Return a sync timer accessor."""
+        return _SyncDomainAccessor(self._client.timer, self._loop_thread)

@@ -26,7 +26,7 @@ async def fake_ha() -> AsyncIterator[FakeHA]:
 @pytest_asyncio.fixture
 async def client(fake_ha: FakeHA) -> AsyncIterator[HAClient]:
     """Return a connected `HAClient` talking to the fake server."""
-    ha = HAClient(
+    ha = HAClient.from_url(
         fake_ha.base_url,
         token=fake_ha.token,
         ping_interval=0,

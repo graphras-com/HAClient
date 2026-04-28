@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..entity import Entity
+from haclient.core.plugins import DomainSpec, register_domain
+from haclient.entity.base import Entity
 
 
 class Switch(Entity):
@@ -17,52 +18,24 @@ class Switch(Entity):
 
     domain = "switch"
 
-    # -- Listener decorators --
+    # -- Listener decorators ------------------------------------------
 
     def on_turn_on(self, func: Any) -> Any:
-        """Register a listener for when the switch turns on.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when the switch turns on."""
         return self._register_state_transition_listener("on", func)
 
     def on_turn_off(self, func: Any) -> Any:
-        """Register a listener for when the switch turns off.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when the switch turns off."""
         return self._register_state_transition_listener("off", func)
 
-    # -- State properties --
+    # -- State properties ---------------------------------------------
 
     @property
     def is_on(self) -> bool:
-        """Check whether the switch is currently on.
-
-        Returns
-        -------
-        bool
-            ``True`` if the switch is on.
-        """
+        """Whether the switch is currently on."""
         return self.state == "on"
 
-    # -- Actions --
+    # -- Actions ------------------------------------------------------
 
     async def on(self) -> None:
         """Activate the switch."""
@@ -75,3 +48,7 @@ class Switch(Entity):
     async def toggle(self) -> None:
         """Toggle the switch state."""
         await self._call_service("toggle")
+
+
+SPEC: DomainSpec[Switch] = register_domain(DomainSpec(name="switch", entity_cls=Switch))
+"""The `DomainSpec` registered with the shared `DomainRegistry`."""
