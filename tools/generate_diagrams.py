@@ -20,9 +20,10 @@ import tempfile
 from pathlib import Path
 
 PROJECT_NAME = "haclient"
-SRC_ROOT = Path("src")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SRC_ROOT = REPO_ROOT / "src"
 PACKAGE_PATH = SRC_ROOT / PROJECT_NAME
-OUTPUT_DIR = Path("docs") / "architecture"
+OUTPUT_DIR = REPO_ROOT / "docs" / "architecture"
 
 DOT_FILES = {
     f"classes_{PROJECT_NAME}.dot": "classes.svg",
