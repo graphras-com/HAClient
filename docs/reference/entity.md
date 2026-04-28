@@ -1,3 +1,3 @@
 # Entity
 
-::: haclient.entity
+::: haclient.entity.base
