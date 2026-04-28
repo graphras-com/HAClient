@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from types import TracebackType
 from collections.abc import Awaitable, Callable
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlparse, urlunparse
 
