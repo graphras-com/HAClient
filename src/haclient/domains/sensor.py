@@ -24,6 +24,16 @@ class Sensor(Entity):
         """Register a listener for sensor value changes.
 
         Receives the **state strings** directly (e.g. ``"21.5"``).
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async callable receiving the new state string.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
         """
         return self._register_state_value_listener(func)
 

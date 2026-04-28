@@ -20,15 +20,48 @@ class Climate(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_hvac_mode_change(self, func: Any) -> Any:
-        """Register a listener for HVAC mode changes."""
+        """Register a listener for HVAC mode changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new HVAC mode string (e.g. ``"heat"``).
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_value_listener(func)
 
     def on_temperature_change(self, func: Any) -> Any:
-        """Register a listener for current temperature changes."""
+        """Register a listener for current temperature changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``current_temperature`` value.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("current_temperature", func)
 
     def on_target_temperature_change(self, func: Any) -> Any:
-        """Register a listener for target temperature changes."""
+        """Register a listener for target temperature changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new target temperature value.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("temperature", func)
 
     # -- State properties ---------------------------------------------
@@ -65,18 +98,43 @@ class Climate(Entity):
         hvac_mode: str | None = None,
         **extra: Any,
     ) -> None:
-        """Set the target temperature, optionally changing HVAC mode."""
+        """Set the target temperature, optionally changing HVAC mode.
+
+        Parameters
+        ----------
+        temperature : float
+            New target temperature, in the units configured on the
+            entity.
+        hvac_mode : str or None, optional
+            HVAC mode to switch to alongside the temperature change.
+        **extra : Any
+            Additional fields forwarded verbatim to Home Assistant
+            (e.g. ``target_temp_high``, ``target_temp_low``).
+        """
         data: dict[str, Any] = {"temperature": float(temperature), **extra}
         if hvac_mode is not None:
             data["hvac_mode"] = hvac_mode
         await self._call_service("set_temperature", data)
 
     async def set_hvac_mode(self, hvac_mode: str) -> None:
-        """Change the HVAC mode (e.g. ``"heat"``, ``"cool"``, ``"off"``)."""
+        """Change the HVAC mode (e.g. ``"heat"``, ``"cool"``, ``"off"``).
+
+        Parameters
+        ----------
+        hvac_mode : str
+            One of the modes reported by `hvac_modes`.
+        """
         await self._call_service("set_hvac_mode", {"hvac_mode": hvac_mode})
 
     async def set_fan_mode(self, fan_mode: str) -> None:
-        """Set the fan mode."""
+        """Set the fan mode.
+
+        Parameters
+        ----------
+        fan_mode : str
+            Fan mode supported by the device (e.g. ``"auto"``,
+            ``"low"``, ``"high"``).
+        """
         await self._call_service("set_fan_mode", {"fan_mode": fan_mode})
 
 

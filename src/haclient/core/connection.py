@@ -87,11 +87,37 @@ class Connection:
         await self._rest.close()
 
     def on_disconnect(self, handler: DisconnectListener) -> DisconnectListener:
-        """Register a disconnect listener (forwarded to the WS adapter)."""
+        """Register a disconnect listener (forwarded to the WS adapter).
+
+        Parameters
+        ----------
+        handler : DisconnectListener
+            Sync or async zero-argument callable invoked when the
+            underlying WebSocket connection drops.
+
+        Returns
+        -------
+        DisconnectListener
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._ws.on_disconnect(handler)
 
     def on_reconnect(self, handler: ReconnectListener) -> ReconnectListener:
-        """Register a reconnect listener (forwarded to the WS adapter)."""
+        """Register a reconnect listener (forwarded to the WS adapter).
+
+        Parameters
+        ----------
+        handler : ReconnectListener
+            Sync or async zero-argument callable invoked after the
+            underlying WebSocket reconnects.
+
+        Returns
+        -------
+        ReconnectListener
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._ws.on_reconnect(handler)
 
     async def _on_reconnect(self) -> None:

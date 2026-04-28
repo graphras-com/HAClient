@@ -187,7 +187,38 @@ class SyncHAClient:
         domains: list[str] | None = None,
         load_plugins: bool = True,
     ) -> SyncHAClient:
-        """Build a `SyncHAClient` from a base URL and token."""
+        """Build a `SyncHAClient` from a base URL and token.
+
+        Parameters
+        ----------
+        base_url : str
+            Home Assistant base URL.
+        token : str
+            Long-lived access token.
+        ws_url : str or None, optional
+            Explicit WebSocket URL (derived from *base_url* when omitted).
+        reconnect : bool, optional
+            Whether the WebSocket should reconnect automatically.
+        ping_interval : float, optional
+            Seconds between WebSocket keepalive pings.
+        request_timeout : float, optional
+            Default timeout for individual requests.
+        verify_ssl : bool, optional
+            Verify TLS certificates.
+        service_policy : ServicePolicy, optional
+            Default service-call routing policy.
+        domains : list of str or None, optional
+            Restrict loaded domains. ``None`` loads all registered
+            domains.
+        load_plugins : bool, optional
+            Discover third-party plugins via the ``haclient.domains``
+            entry-point group.
+
+        Returns
+        -------
+        SyncHAClient
+            The configured sync client (not yet connected).
+        """
         config = ConnectionConfig.from_url(
             base_url,
             token,
@@ -230,47 +261,161 @@ class SyncHAClient:
     def on_reconnect(
         self, handler: Callable[[], Awaitable[None] | None]
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register a reconnect listener."""
+        """Register a reconnect listener.
+
+        Parameters
+        ----------
+        handler : callable
+            Sync or async zero-argument callable invoked after the
+            WebSocket reconnects.
+
+        Returns
+        -------
+        callable
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._client.on_reconnect(handler)
 
     def on_disconnect(
         self, handler: Callable[[], Awaitable[None] | None]
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register a disconnect listener."""
+        """Register a disconnect listener.
+
+        Parameters
+        ----------
+        handler : callable
+            Sync or async zero-argument callable invoked when the
+            WebSocket connection drops.
+
+        Returns
+        -------
+        callable
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._client.on_disconnect(handler)
 
     # -- Domain accessors --
 
     def domain(self, name: str) -> _SyncDomainAccessor:
-        """Return a sync accessor for *name*."""
+        """Return a sync accessor for *name*.
+
+        Parameters
+        ----------
+        name : str
+            HA domain name (e.g. ``"light"`` or a third-party domain).
+
+        Returns
+        -------
+        _SyncDomainAccessor
+            Blocking accessor wrapping the underlying async accessor.
+        """
         return _SyncDomainAccessor(self._client.domain(name), self._loop_thread)
 
     def media_player(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `MediaPlayer`."""
+        """Return a sync proxy wrapping the async `MediaPlayer`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``media_player.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `MediaPlayer`.
+        """
         return _SyncProxy(self._client.media_player(name), self._loop_thread)
 
     def light(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Light`."""
+        """Return a sync proxy wrapping the async `Light`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``light.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `Light`.
+        """
         return _SyncProxy(self._client.light(name), self._loop_thread)
 
     def switch(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Switch`."""
+        """Return a sync proxy wrapping the async `Switch`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``switch.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `Switch`.
+        """
         return _SyncProxy(self._client.switch(name), self._loop_thread)
 
     def climate(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Climate`."""
+        """Return a sync proxy wrapping the async `Climate`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``climate.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `Climate`.
+        """
         return _SyncProxy(self._client.climate(name), self._loop_thread)
 
     def cover(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Cover`."""
+        """Return a sync proxy wrapping the async `Cover`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``cover.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `Cover`.
+        """
         return _SyncProxy(self._client.cover(name), self._loop_thread)
 
     def sensor(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `Sensor`."""
+        """Return a sync proxy wrapping the async `Sensor`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``sensor.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `Sensor`.
+        """
         return _SyncProxy(self._client.sensor(name), self._loop_thread)
 
     def binary_sensor(self, name: str) -> Any:
-        """Return a sync proxy wrapping the async `BinarySensor`."""
+        """Return a sync proxy wrapping the async `BinarySensor`.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name or full ``binary_sensor.<name>`` id.
+
+        Returns
+        -------
+        _SyncProxy
+            Blocking proxy delegating to the async `BinarySensor`.
+        """
         return _SyncProxy(self._client.binary_sensor(name), self._loop_thread)
 
     @property

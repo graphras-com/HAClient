@@ -77,6 +77,14 @@ class EventBus:
 
         If the last handler for *event_type* is removed the WebSocket
         subscription is also cancelled.
+
+        Parameters
+        ----------
+        event_type : str
+            The Home Assistant event type to unsubscribe from.
+        handler : callable
+            The exact handler previously passed to `subscribe`. Removing
+            an unknown handler is a no-op.
         """
         handlers = self._handlers.get(event_type)
         if not handlers:
@@ -180,6 +188,15 @@ class EventBus:
         After a reconnect, the underlying WS adapter re-subscribes for us
         (it stores the original handlers). All we need to do is invoke the
         optional *on_reconnect* callback (e.g. `StateStore.refresh_all`).
+
+        Parameters
+        ----------
+        on_reconnect : callable or None, optional
+            Sync or async callable invoked once the WebSocket reconnects.
+            Receives an empty event dict for compatibility with the
+            generic event-handler signature. ``None`` (the default) is a
+            no-op — useful for callers that only need the WS adapter's
+            built-in re-subscription behaviour.
         """
         if on_reconnect is None:
             return

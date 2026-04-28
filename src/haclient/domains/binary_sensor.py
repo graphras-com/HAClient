@@ -21,11 +21,37 @@ class BinarySensor(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_activate(self, func: Any) -> Any:
-        """Register a listener for when the sensor activates (state ``on``)."""
+        """Register a listener for when the sensor activates (state ``on``).
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``on`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned so the method can be used as a
+            decorator.
+        """
         return self._register_state_transition_listener("on", func)
 
     def on_deactivate(self, func: Any) -> Any:
-        """Register a listener for when the sensor deactivates (state ``off``)."""
+        """Register a listener for when the sensor deactivates (state ``off``).
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``off`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned so the method can be used as a
+            decorator.
+        """
         return self._register_state_transition_listener("off", func)
 
     # -- State properties ---------------------------------------------

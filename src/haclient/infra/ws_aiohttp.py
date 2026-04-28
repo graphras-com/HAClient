@@ -168,12 +168,39 @@ class AiohttpWebSocketAdapter:
             await self._session.close()
 
     def on_disconnect(self, handler: DisconnectListener) -> DisconnectListener:
-        """Register a disconnect listener."""
+        """Register a disconnect listener.
+
+        Parameters
+        ----------
+        handler : DisconnectListener
+            Sync or async zero-argument callable invoked when the
+            WebSocket connection drops.
+
+        Returns
+        -------
+        DisconnectListener
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         self._disconnect_listeners.append(handler)
         return handler
 
     def on_reconnect(self, handler: ReconnectListener) -> ReconnectListener:
-        """Register a reconnect listener."""
+        """Register a reconnect listener.
+
+        Parameters
+        ----------
+        handler : ReconnectListener
+            Sync or async zero-argument callable invoked after the
+            WebSocket reconnects and prior subscriptions have been
+            re-established.
+
+        Returns
+        -------
+        ReconnectListener
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         self._reconnect_listeners.append(handler)
         return handler
 
@@ -207,7 +234,33 @@ class AiohttpWebSocketAdapter:
         *,
         timeout: float | None = None,
     ) -> Any:
-        """Send a command and await its ``result`` frame."""
+        """Send a command and await its ``result`` frame.
+
+        An ``id`` field is injected automatically; callers must not set
+        it themselves.
+
+        Parameters
+        ----------
+        payload : dict
+            Command body without an ``id`` field.
+        timeout : float or None, optional
+            Seconds to wait for the matching ``result`` frame. ``None``
+            uses the adapter's configured ``request_timeout``.
+
+        Returns
+        -------
+        Any
+            The ``result`` field of the response frame.
+
+        Raises
+        ------
+        ConnectionClosedError
+            If the WebSocket is not currently connected.
+        TimeoutError
+            If no matching ``result`` arrives within *timeout*.
+        CommandError
+            If Home Assistant responds with ``success=False``.
+        """
         if not self.connected:
             raise ConnectionClosedError("WebSocket is not connected")
         assert self._ws is not None
@@ -233,7 +286,24 @@ class AiohttpWebSocketAdapter:
         handler: EventHandler,
         event_type: str | None = None,
     ) -> int:
-        """Subscribe to Home Assistant events."""
+        """Subscribe to Home Assistant events.
+
+        Subscriptions are remembered so they can be re-established
+        automatically on reconnect.
+
+        Parameters
+        ----------
+        handler : callable
+            Sync or async callable invoked with each matching event.
+        event_type : str or None, optional
+            Restrict the subscription to a single event type. ``None``
+            subscribes to all events.
+
+        Returns
+        -------
+        int
+            The subscription id, suitable for passing to `unsubscribe`.
+        """
         payload: dict[str, Any] = {"type": "subscribe_events"}
         if event_type is not None:
             payload["event_type"] = event_type
@@ -257,7 +327,15 @@ class AiohttpWebSocketAdapter:
         return cmd_id
 
     async def unsubscribe(self, subscription_id: int) -> None:
-        """Cancel a previously registered subscription."""
+        """Cancel a previously registered subscription.
+
+        Parameters
+        ----------
+        subscription_id : int
+            The id returned by `subscribe_events`. Unknown ids are
+            silently ignored on the local side; HA may still return an
+            error.
+        """
         await self.send_command({"type": "unsubscribe_events", "subscription": subscription_id})
         self._subscriptions.pop(subscription_id, None)
         for k, (sid, _handler) in list(self._event_subs.items()):
@@ -398,7 +476,21 @@ class AiohttpWebSocketAdapter:
             return
 
     async def ping(self, *, timeout: float | None = None) -> None:
-        """Send a ``ping`` frame and wait for the matching ``pong``."""
+        """Send a ``ping`` frame and wait for the matching ``pong``.
+
+        Parameters
+        ----------
+        timeout : float or None, optional
+            Seconds to wait for the pong. ``None`` uses the adapter's
+            configured ``request_timeout``.
+
+        Raises
+        ------
+        ConnectionClosedError
+            If the WebSocket is not currently connected.
+        TimeoutError
+            If the pong does not arrive within *timeout*.
+        """
         if not self.connected:
             raise ConnectionClosedError("WebSocket is not connected")
         assert self._ws is not None

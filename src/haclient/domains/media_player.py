@@ -206,31 +206,101 @@ class MediaPlayer(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_volume_change(self, func: Any) -> Any:
-        """Register a listener for volume level changes."""
+        """Register a listener for volume level changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``volume_level`` value
+            (``0.0``-``1.0``).
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("volume_level", func)
 
     def on_mute_change(self, func: Any) -> Any:
-        """Register a listener for mute state changes."""
+        """Register a listener for mute state changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``is_volume_muted`` value.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("is_volume_muted", func)
 
     def on_media_change(self, func: Any) -> Any:
         """Register a listener for when the playing media changes.
 
         Receives ``(old: NowPlaying, new: NowPlaying)``.
+
+        Parameters
+        ----------
+        func : callable
+            Callable invoked with the previous and current `NowPlaying`
+            snapshots whenever they differ.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
         """
         self._media_change_listeners.append(func)
         return func
 
     def on_play(self, func: Any) -> Any:
-        """Register a listener for when playback starts."""
+        """Register a listener for when playback starts.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``playing`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("playing", func)
 
     def on_pause(self, func: Any) -> Any:
-        """Register a listener for when playback pauses."""
+        """Register a listener for when playback pauses.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``paused`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("paused", func)
 
     def on_stop(self, func: Any) -> Any:
-        """Register a listener for when playback stops."""
+        """Register a listener for when playback stops.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``idle`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("idle", func)
 
     def _dispatch_granular_events(
@@ -250,7 +320,15 @@ class MediaPlayer(Entity):
                 self._schedule_value(listener, old_np, new_np)
 
     def remove_granular_listener(self, func: ValueChangeHandler) -> None:
-        """Remove a granular listener, including media-change listeners."""
+        """Remove a granular listener, including media-change listeners.
+
+        Parameters
+        ----------
+        func : ValueChangeHandler
+            The exact handler previously registered via one of the
+            ``on_*`` listener methods. Unknown handlers are silently
+            ignored.
+        """
         with contextlib.suppress(ValueError):
             self._media_change_listeners.remove(func)
             return
@@ -328,7 +406,13 @@ class MediaPlayer(Entity):
         await self._call_service("volume_set", {"volume_level": float(level)})
 
     async def mute(self, muted: bool = True) -> None:
-        """Mute or unmute the media player."""
+        """Mute or unmute the media player.
+
+        Parameters
+        ----------
+        muted : bool, optional
+            ``True`` to mute (default), ``False`` to unmute.
+        """
         await self._call_service("volume_mute", {"is_volume_muted": bool(muted)})
 
     async def power_on(self) -> None:
@@ -340,7 +424,14 @@ class MediaPlayer(Entity):
         await self._call_service("turn_off")
 
     async def select_source(self, source: str) -> None:
-        """Select an input source."""
+        """Select an input source.
+
+        Parameters
+        ----------
+        source : str
+            Name of the input source. Must be one of the values reported
+            in the entity's ``source_list`` attribute.
+        """
         await self._call_service("select_source", {"source": source})
 
     async def play_media(
@@ -349,7 +440,18 @@ class MediaPlayer(Entity):
         media_content_id: str,
         **extra: Any,
     ) -> None:
-        """Play a specific media item."""
+        """Play a specific media item.
+
+        Parameters
+        ----------
+        media_content_type : str
+            Media content type identifier (e.g. ``"music"``).
+        media_content_id : str
+            Media content id understood by the underlying integration.
+        **extra : Any
+            Additional fields forwarded verbatim to Home Assistant
+            (e.g. ``enqueue``, ``announce``).
+        """
         data: dict[str, Any] = {
             "media_content_type": media_content_type,
             "media_content_id": media_content_id,
@@ -363,6 +465,15 @@ class MediaPlayer(Entity):
         media_content_id: str | None = None,
     ) -> dict[str, Any]:
         """Issue a single ``media_player/browse_media`` WebSocket command.
+
+        Parameters
+        ----------
+        media_content_type : str or None, optional
+            Restrict browsing to this content type. ``None`` returns the
+            root browse node.
+        media_content_id : str or None, optional
+            Restrict browsing to this content id. ``None`` returns the
+            root browse node.
 
         Returns
         -------

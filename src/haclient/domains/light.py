@@ -24,23 +24,81 @@ class Light(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_turn_on(self, func: Any) -> Any:
-        """Register a listener for when the light turns on."""
+        """Register a listener for when the light turns on.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``on`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("on", func)
 
     def on_turn_off(self, func: Any) -> Any:
-        """Register a listener for when the light turns off."""
+        """Register a listener for when the light turns off.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``off`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("off", func)
 
     def on_brightness_change(self, func: Any) -> Any:
-        """Register a listener for brightness changes."""
+        """Register a listener for brightness changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new brightness value (0-255).
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("brightness", func)
 
     def on_color_change(self, func: Any) -> Any:
-        """Register a listener for RGB color changes."""
+        """Register a listener for RGB color changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``rgb_color`` value as reported
+            by Home Assistant.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("rgb_color", func)
 
     def on_kelvin_change(self, func: Any) -> Any:
-        """Register a listener for color temperature (Kelvin) changes."""
+        """Register a listener for color temperature (Kelvin) changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``color_temp_kelvin`` value.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("color_temp_kelvin", func)
 
     # -- State properties ---------------------------------------------
@@ -85,14 +143,31 @@ class Light(Entity):
     # -- Actions ------------------------------------------------------
 
     async def set_brightness(self, brightness: int, *, transition: float | None = None) -> None:
-        """Set the brightness (0--255), turning the light on if needed."""
+        """Set the brightness (0--255), turning the light on if needed.
+
+        Parameters
+        ----------
+        brightness : int
+            New brightness value, coerced to ``int``. ``0`` turns the
+            light off; ``255`` is full brightness.
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
+        """
         data: dict[str, Any] = {"brightness": int(brightness)}
         if transition is not None:
             data["transition"] = transition
         await self._call_service("turn_on", data)
 
     async def set_kelvin(self, kelvin: int, *, transition: float | None = None) -> None:
-        """Set the color temperature in Kelvin, turning the light on if needed."""
+        """Set the color temperature in Kelvin, turning the light on if needed.
+
+        Parameters
+        ----------
+        kelvin : int
+            Target color temperature in Kelvin.
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
+        """
         data: dict[str, Any] = {"color_temp_kelvin": int(kelvin)}
         if transition is not None:
             data["transition"] = transition
@@ -106,7 +181,19 @@ class Light(Entity):
         *,
         transition: float | None = None,
     ) -> None:
-        """Set the RGB color, turning the light on if needed."""
+        """Set the RGB color, turning the light on if needed.
+
+        Parameters
+        ----------
+        r : int
+            Red component (0-255).
+        g : int
+            Green component (0-255).
+        b : int
+            Blue component (0-255).
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
+        """
         data: dict[str, Any] = {"rgb_color": [r, g, b]}
         if transition is not None:
             data["transition"] = transition
@@ -122,6 +209,15 @@ class Light(Entity):
         """Set the light color by RGB or Kelvin.
 
         Exactly one of *rgb* or *kelvin* must be provided.
+
+        Parameters
+        ----------
+        rgb : tuple of int or None, optional
+            Three-tuple ``(r, g, b)`` with components in 0-255.
+        kelvin : int or None, optional
+            Target color temperature in Kelvin.
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
 
         Raises
         ------
@@ -142,14 +238,26 @@ class Light(Entity):
             await self._call_service("turn_on", data)
 
     async def on(self, *, transition: float | None = None) -> None:
-        """Turn the light on without changing color or brightness."""
+        """Turn the light on without changing color or brightness.
+
+        Parameters
+        ----------
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
+        """
         data: dict[str, Any] = {}
         if transition is not None:
             data["transition"] = transition
         await self._call_service("turn_on", data or None)
 
     async def off(self, *, transition: float | None = None) -> None:
-        """Turn the light off."""
+        """Turn the light off.
+
+        Parameters
+        ----------
+        transition : float or None, optional
+            Seconds for the transition. Forwarded to HA when set.
+        """
         data: dict[str, Any] = {}
         if transition is not None:
             data["transition"] = transition

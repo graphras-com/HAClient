@@ -176,7 +176,14 @@ class Timer(Entity):
     # -- Actions ------------------------------------------------------
 
     async def start(self, *, duration: str | None = None) -> None:
-        """Start (or restart) the timer."""
+        """Start (or restart) the timer.
+
+        Parameters
+        ----------
+        duration : str or None, optional
+            Optional override duration in HA format (e.g. ``"00:05:00"``).
+            ``None`` keeps the helper's configured duration.
+        """
         data: dict[str, Any] | None = {"duration": duration} if duration else None
         await self._call_service("start", data)
 
@@ -193,27 +200,81 @@ class Timer(Entity):
         await self._call_service("finish")
 
     async def change(self, *, duration: str) -> None:
-        """Add or subtract time from a running timer."""
+        """Add or subtract time from a running timer.
+
+        Parameters
+        ----------
+        duration : str
+            Signed HA duration string (e.g. ``"00:01:00"`` to add a
+            minute, ``"-00:00:30"`` to subtract 30 seconds).
+        """
         await self._call_service("change", {"duration": duration})
 
     # -- Listener decorators ------------------------------------------
 
     def on_start(self, func: Any) -> Any:
-        """Register a listener for when the timer starts (becomes active)."""
+        """Register a listener for when the timer starts (becomes active).
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``active`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("active", func)
 
     def on_pause(self, func: Any) -> Any:
-        """Register a listener for when the timer is paused."""
+        """Register a listener for when the timer is paused.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``paused`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("paused", func)
 
     def on_idle(self, func: Any) -> Any:
-        """Register a listener for when the timer becomes idle."""
+        """Register a listener for when the timer becomes idle.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``idle`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("idle", func)
 
     def on_finished(self, func: Any) -> Any:
         """Register a listener for natural timer expiry.
 
         Driven by the HA ``timer.finished`` event (not state changes).
+
+        Parameters
+        ----------
+        func : callable
+            Callable invoked with ``(entity_id, event_data)`` when the
+            timer expires.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
         """
         self._finished_listeners.append(func)
         return func
@@ -222,6 +283,17 @@ class Timer(Entity):
         """Register a listener for explicit timer cancellation.
 
         Driven by the HA ``timer.cancelled`` event (not state changes).
+
+        Parameters
+        ----------
+        func : callable
+            Callable invoked with ``(entity_id, event_data)`` when the
+            timer is cancelled.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
         """
         self._cancelled_listeners.append(func)
         return func
@@ -329,6 +401,12 @@ def _parse_duration_to_seconds(value: str) -> float | None:
     """Parse a Home Assistant duration string to total seconds.
 
     Supports formats like ``"0:05:00"`` and ``"00:05:00"``.
+
+    Parameters
+    ----------
+    value : str
+        Duration string in ``"H:MM:SS"`` or ``"HH:MM:SS"`` form. Seconds
+        may include a fractional component.
 
     Returns
     -------
