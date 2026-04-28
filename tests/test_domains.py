@@ -44,7 +44,7 @@ async def test_light_actions(client: HAClient, fake_ha: FakeHA) -> None:
 
 
 async def test_light_state_properties() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         light = ha.light("kitchen")
         light._apply_state(
@@ -209,7 +209,7 @@ async def test_cover_actions(client: HAClient, fake_ha: FakeHA) -> None:
 
 
 async def test_sensor_values() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         s = ha.sensor("temp")
         s._apply_state(
@@ -231,7 +231,7 @@ async def test_sensor_values() -> None:
 
 
 async def test_binary_sensor_values() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         b = ha.binary_sensor("door")
         b._apply_state({"state": "on", "attributes": {"device_class": "door"}})
@@ -282,7 +282,7 @@ async def test_media_player_playback(client: HAClient, fake_ha: FakeHA) -> None:
 
 
 async def test_media_player_state_props() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         mp = ha.media_player("livingroom")
         mp._apply_state(
@@ -311,7 +311,7 @@ async def test_media_player_state_props() -> None:
 
 async def test_now_playing_entity_picture_absolute_url() -> None:
     """entity_picture is resolved to an absolute URL using the client base_url."""
-    ha = HAClient("http://ha.local:8123", "t")
+    ha = HAClient.from_url("http://ha.local:8123", token="t", load_plugins=False)
     try:
         mp = ha.media_player("livingroom")
         mp._apply_state(
@@ -332,7 +332,7 @@ async def test_now_playing_entity_picture_absolute_url() -> None:
 
 async def test_now_playing_entity_picture_already_absolute() -> None:
     """entity_picture that is already absolute is left unchanged."""
-    ha = HAClient("http://ha.local:8123", "t")
+    ha = HAClient.from_url("http://ha.local:8123", token="t", load_plugins=False)
     try:
         mp = ha.media_player("livingroom")
         mp._apply_state(
@@ -350,7 +350,7 @@ async def test_now_playing_entity_picture_already_absolute() -> None:
 
 async def test_now_playing_entity_picture_none() -> None:
     """entity_picture is None when not present."""
-    ha = HAClient("http://ha.local:8123", "t")
+    ha = HAClient.from_url("http://ha.local:8123", token="t", load_plugins=False)
     try:
         mp = ha.media_player("livingroom")
         mp._apply_state({"state": "playing", "attributes": {}})
@@ -399,7 +399,7 @@ async def test_timer_actions(client: HAClient, fake_ha: FakeHA) -> None:
 
 
 async def test_timer_state_properties() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("my_timer")
         t._apply_state(
@@ -452,7 +452,7 @@ async def test_scene_activate(client: HAClient, fake_ha: FakeHA) -> None:
 
 
 async def test_scene_state_properties() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         sc = ha.scene("romantic")
         sc._apply_state(
@@ -474,7 +474,7 @@ async def test_scene_state_properties() -> None:
 
 
 async def test_scene_unavailable_state() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         sc = ha.scene("broken")
         sc._apply_state({"state": "unavailable", "attributes": {}})
@@ -486,7 +486,7 @@ async def test_scene_unavailable_state() -> None:
 
 
 async def test_scene_empty_attributes() -> None:
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         sc = ha.scene("minimal")
         sc._apply_state(
@@ -534,7 +534,7 @@ async def test_timer_time_remaining_active() -> None:
     """``time_remaining`` computes live seconds from ``finishes_at`` when active."""
     import datetime
 
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("remaining_timer")
         # Set finishes_at to 120 seconds from now
@@ -559,7 +559,7 @@ async def test_timer_time_remaining_active() -> None:
 
 async def test_timer_time_remaining_paused() -> None:
     """``time_remaining`` parses remaining attribute when paused."""
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("paused_timer")
         t._apply_state(
@@ -577,7 +577,7 @@ async def test_timer_time_remaining_paused() -> None:
 
 async def test_timer_time_remaining_idle() -> None:
     """``time_remaining`` returns ``None`` when idle."""
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("idle_timer")
         t._apply_state({"state": "idle", "attributes": {"duration": "0:05:00"}})
@@ -588,7 +588,7 @@ async def test_timer_time_remaining_idle() -> None:
 
 async def test_timer_time_remaining_missing_attrs() -> None:
     """``time_remaining`` returns ``None`` when attributes are missing."""
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("no_attrs_timer")
         t._apply_state({"state": "active", "attributes": {}})
@@ -601,7 +601,7 @@ async def test_timer_time_remaining_missing_attrs() -> None:
 
 async def test_timer_time_remaining_bad_finishes_at() -> None:
     """``time_remaining`` returns ``None`` for unparseable ``finishes_at``."""
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("bad_timer")
         t._apply_state({"state": "active", "attributes": {"finishes_at": "not-a-date"}})
@@ -612,7 +612,7 @@ async def test_timer_time_remaining_bad_finishes_at() -> None:
 
 async def test_timer_time_remaining_bad_remaining() -> None:
     """``time_remaining`` returns ``None`` for unparseable ``remaining``."""
-    ha = HAClient("http://x", "t")
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
     try:
         t = ha.timer("bad_rem_timer")
         t._apply_state({"state": "paused", "attributes": {"remaining": "bad"}})

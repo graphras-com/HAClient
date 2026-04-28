@@ -21,13 +21,24 @@ nav:
   - Architecture: architecture.md
   - API Reference:
       - Overview: reference/index.md
-      - Client: reference/client.md
+      - HAClient (façade): reference/api.md
       - Sync Client: reference/sync.md
-      - REST: reference/rest.md
-      - WebSocket: reference/websocket.md
+      - Configuration: reference/config.md
+      - Ports: reference/ports.md
       - Entity: reference/entity.md
-      - Registry: reference/registry.md
       - Exceptions: reference/exceptions.md
+      - Core:
+          - Connection: reference/core/connection.md
+          - Event Bus: reference/core/events.md
+          - Service Caller: reference/core/services.md
+          - State Store: reference/core/state.md
+          - Entity Registry: reference/core/registry.md
+          - Entity Factory: reference/core/factory.md
+          - Plugins: reference/core/plugins.md
+          - Clock: reference/core/clock.md
+      - Infrastructure:
+          - REST adapter: reference/infra/rest_aiohttp.md
+          - WebSocket adapter: reference/infra/ws_aiohttp.md
       - Domains:
           - Light: reference/domains/light.md
           - Switch: reference/domains/switch.md

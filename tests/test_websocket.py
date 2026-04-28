@@ -1,4 +1,4 @@
-"""Tests for the low-level WebSocketClient."""
+"""Tests for the low-level WebSocket adapter."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from haclient.exceptions import (
     HAClientError,
 )
 from haclient.exceptions import TimeoutError as HATimeoutError
-from haclient.websocket import WebSocketClient
+from haclient.infra.ws_aiohttp import AiohttpWebSocketAdapter as WebSocketClient
 
 from .fake_ha import FakeHA
 

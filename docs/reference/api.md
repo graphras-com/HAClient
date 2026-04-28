@@ -1,0 +1,3 @@
+# HAClient (façade)
+
+::: haclient.api

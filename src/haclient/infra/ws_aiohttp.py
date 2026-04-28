@@ -1,15 +1,14 @@
-"""Home Assistant WebSocket API client.
+"""aiohttp-based implementation of `WebSocketPort`.
 
-The implementation focuses on being robust and test-friendly:
+The implementation focuses on robustness:
 
-* A single background task (``_reader_task``) consumes the WebSocket.
-* All outgoing commands get a monotonically increasing ``id`` and resolve
-  through an :class:`asyncio.Future` when the matching ``result`` frame
-  arrives.
+* A single background task (``_reader_task``) consumes incoming frames.
+* Each outgoing command gets a monotonically increasing ``id`` and resolves
+  through an :class:`asyncio.Future` when the matching ``result`` arrives.
 * A separate ``_keepalive_task`` periodically sends ``ping`` messages.
-* If the socket drops unexpectedly an exponential back-off reconnect loop
-  restarts the connection, and any previously registered subscriptions are
-  re-established transparently.
+* On unexpected disconnects, an exponential back-off reconnect loop is
+  spawned and any registered subscriptions are re-established before the
+  reconnect listeners fire.
 """
 
 from __future__ import annotations
@@ -18,42 +17,39 @@ import asyncio
 import contextlib
 import logging
 import random
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 import aiohttp
 
-from .exceptions import (
+from haclient.exceptions import (
     AuthenticationError,
     CommandError,
     ConnectionClosedError,
     HAClientError,
 )
-from .exceptions import TimeoutError as HATimeoutError
+from haclient.exceptions import TimeoutError as HATimeoutError
+from haclient.ports import DisconnectListener, EventHandler, ReconnectListener
 
 _LOGGER = logging.getLogger(__name__)
 
-EventHandler = Callable[[dict[str, Any]], Awaitable[None] | None]
 
-
-class WebSocketClient:
-    """Async Home Assistant WebSocket client.
+class AiohttpWebSocketAdapter:
+    """Async Home Assistant WebSocket adapter.
 
     Parameters
     ----------
     url : str
-        Fully-qualified WebSocket URL (e.g. ``ws://localhost:8123/api/websocket``).
+        Fully-qualified WebSocket URL.
     token : str
         Long-lived access token.
     session : aiohttp.ClientSession or None, optional
-        Pre-existing ``aiohttp.ClientSession``. If not provided one will be
-        created and closed automatically.
+        Externally-owned session to reuse.
     reconnect : bool, optional
-        Whether to reconnect automatically when the socket drops.
+        Whether to reconnect automatically.
     ping_interval : float, optional
-        Seconds between keepalive pings. Set to ``0`` to disable.
+        Seconds between keepalive pings (``0`` disables them).
     request_timeout : float, optional
-        Default timeout (seconds) for individual WebSocket commands.
+        Default timeout for command responses.
     verify_ssl : bool, optional
         Verify TLS certificates.
     """
@@ -89,8 +85,8 @@ class WebSocketClient:
         self._keepalive_task: asyncio.Task[None] | None = None
         self._closing = False
         self._connected = asyncio.Event()
-        self._disconnect_listeners: list[Callable[[], Awaitable[None] | None]] = []
-        self._reconnect_listeners: list[Callable[[], Awaitable[None] | None]] = []
+        self._disconnect_listeners: list[DisconnectListener] = []
+        self._reconnect_listeners: list[ReconnectListener] = []
 
     @property
     def connected(self) -> bool:
@@ -117,7 +113,7 @@ class WebSocketClient:
         return self._session
 
     async def _do_connect(self) -> None:
-        """Open the WebSocket and perform the authentication handshake."""
+        """Open the WebSocket and perform the auth handshake."""
         session = await self._ensure_session()
         try:
             self._ws = await session.ws_connect(
@@ -171,43 +167,13 @@ class WebSocketClient:
         if self._owns_session and self._session is not None and not self._session.closed:
             await self._session.close()
 
-    def on_disconnect(
-        self, handler: Callable[[], Awaitable[None] | None]
-    ) -> Callable[[], Awaitable[None] | None]:
-        """Register *handler* to be called when the connection drops.
-
-        Parameters
-        ----------
-        handler : callable
-            A sync or async callable taking no arguments.
-
-        Returns
-        -------
-        callable
-            The same *handler*, for use as a decorator.
-        """
+    def on_disconnect(self, handler: DisconnectListener) -> DisconnectListener:
+        """Register a disconnect listener."""
         self._disconnect_listeners.append(handler)
         return handler
 
-    def on_reconnect(
-        self, handler: Callable[[], Awaitable[None] | None]
-    ) -> Callable[[], Awaitable[None] | None]:
-        """Register *handler* to be called after a successful reconnection.
-
-        The handler fires once the WebSocket is authenticated and all prior
-        event subscriptions have been re-established. This is the right
-        place to refresh stale state (e.g. call ``refresh_all``).
-
-        Parameters
-        ----------
-        handler : callable
-            A sync or async callable taking no arguments.
-
-        Returns
-        -------
-        callable
-            The same *handler*, for use as a decorator.
-        """
+    def on_reconnect(self, handler: ReconnectListener) -> ReconnectListener:
+        """Register a reconnect listener."""
         self._reconnect_listeners.append(handler)
         return handler
 
@@ -241,29 +207,7 @@ class WebSocketClient:
         *,
         timeout: float | None = None,
     ) -> Any:
-        """Send a command and await its ``result`` frame.
-
-        Parameters
-        ----------
-        payload : dict
-            The command payload (without ``id``; one is assigned automatically).
-        timeout : float or None, optional
-            Seconds to wait for the reply. Falls back to *request_timeout*.
-
-        Returns
-        -------
-        Any
-            The value of the ``result`` key in the response.
-
-        Raises
-        ------
-        CommandError
-            If Home Assistant returns ``success: false``.
-        TimeoutError
-            If no reply arrives within the timeout.
-        ConnectionClosedError
-            If the WebSocket is not connected.
-        """
+        """Send a command and await its ``result`` frame."""
         if not self.connected:
             raise ConnectionClosedError("WebSocket is not connected")
         assert self._ws is not None
@@ -289,20 +233,7 @@ class WebSocketClient:
         handler: EventHandler,
         event_type: str | None = None,
     ) -> int:
-        """Subscribe to Home Assistant events.
-
-        Parameters
-        ----------
-        handler : callable
-            Callback invoked with the event dict. May be sync or async.
-        event_type : str or None, optional
-            Event type to filter on. If ``None``, all events are received.
-
-        Returns
-        -------
-        int
-            The subscription id (needed for `unsubscribe`).
-        """
+        """Subscribe to Home Assistant events."""
         payload: dict[str, Any] = {"type": "subscribe_events"}
         if event_type is not None:
             payload["event_type"] = event_type
@@ -326,13 +257,7 @@ class WebSocketClient:
         return cmd_id
 
     async def unsubscribe(self, subscription_id: int) -> None:
-        """Unsubscribe a previously registered subscription.
-
-        Parameters
-        ----------
-        subscription_id : int
-            The id returned by `subscribe_events`.
-        """
+        """Cancel a previously registered subscription."""
         await self.send_command({"type": "unsubscribe_events", "subscription": subscription_id})
         self._subscriptions.pop(subscription_id, None)
         for k, (sid, _handler) in list(self._event_subs.items()):
@@ -403,7 +328,7 @@ class WebSocketClient:
                 _LOGGER.exception("Reconnect listener raised")
 
     async def _dispatch(self, msg: dict[str, Any]) -> None:
-        """Route an incoming message to the appropriate handler or future."""
+        """Route an incoming message to its handler or future."""
         mtype = msg.get("type")
         mid = msg.get("id")
         if mtype == "result":
@@ -445,7 +370,7 @@ class WebSocketClient:
             _LOGGER.exception("Event handler raised")
 
     async def _reconnect_loop(self) -> None:
-        """Attempt to re-establish the connection with exponential back-off."""
+        """Re-establish the connection with exponential back-off."""
         delay = 1.0
         attempt = 0
         while not self._closing:
@@ -473,23 +398,7 @@ class WebSocketClient:
             return
 
     async def ping(self, *, timeout: float | None = None) -> None:
-        """Send a ``ping`` frame and wait for the matching ``pong``.
-
-        Home Assistant replies with ``{"type": "pong"}`` rather than a
-        ``result`` frame, so this is implemented as a separate code path.
-
-        Parameters
-        ----------
-        timeout : float or None, optional
-            Seconds to wait for the pong. Falls back to *request_timeout*.
-
-        Raises
-        ------
-        TimeoutError
-            If the pong does not arrive within the timeout.
-        ConnectionClosedError
-            If the WebSocket is not connected.
-        """
+        """Send a ``ping`` frame and wait for the matching ``pong``."""
         if not self.connected:
             raise ConnectionClosedError("WebSocket is not connected")
         assert self._ws is not None

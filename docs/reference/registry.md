@@ -1,3 +1,0 @@
-# Entity Registry
-
-::: haclient.registry

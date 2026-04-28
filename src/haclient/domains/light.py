@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..entity import Entity
+from haclient.core.plugins import DomainSpec, register_domain
+from haclient.entity.base import Entity
 
 
 class Light(Entity):
@@ -20,185 +21,78 @@ class Light(Entity):
 
     domain = "light"
 
-    # -- Listener decorators --
+    # -- Listener decorators ------------------------------------------
 
     def on_turn_on(self, func: Any) -> Any:
-        """Register a listener for when the light turns on.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when the light turns on."""
         return self._register_state_transition_listener("on", func)
 
     def on_turn_off(self, func: Any) -> Any:
-        """Register a listener for when the light turns off.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when the light turns off."""
         return self._register_state_transition_listener("off", func)
 
     def on_brightness_change(self, func: Any) -> Any:
-        """Register a listener for brightness changes.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_brightness, new_brightness)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for brightness changes."""
         return self._register_attr_listener("brightness", func)
 
     def on_color_change(self, func: Any) -> Any:
-        """Register a listener for RGB color changes.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_rgb, new_rgb)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for RGB color changes."""
         return self._register_attr_listener("rgb_color", func)
 
     def on_kelvin_change(self, func: Any) -> Any:
-        """Register a listener for color temperature (Kelvin) changes.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_kelvin, new_kelvin)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for color temperature (Kelvin) changes."""
         return self._register_attr_listener("color_temp_kelvin", func)
 
-    # -- State properties --
+    # -- State properties ---------------------------------------------
 
     @property
     def is_on(self) -> bool:
-        """Check whether the light is currently on.
-
-        Returns
-        -------
-        bool
-            ``True`` if the light is on.
-        """
+        """Whether the light is currently on."""
         return self.state == "on"
 
     @property
     def brightness(self) -> int | None:
-        """Current brightness (0--255) or ``None`` if unsupported/unknown.
-
-        Returns
-        -------
-        int or None
-            The brightness value.
-        """
+        """Current brightness (0--255) or ``None``."""
         value = self.attributes.get("brightness")
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def min_kelvin(self) -> int | None:
-        """Minimum supported color temperature in Kelvin, or ``None``.
-
-        Returns
-        -------
-        int or None
-            The minimum Kelvin value.
-        """
+        """Minimum supported color temperature in Kelvin, or ``None``."""
         value = self.attributes.get("min_color_temp_kelvin")
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def max_kelvin(self) -> int | None:
-        """Maximum supported color temperature in Kelvin, or ``None``.
-
-        Returns
-        -------
-        int or None
-            The maximum Kelvin value.
-        """
+        """Maximum supported color temperature in Kelvin, or ``None``."""
         value = self.attributes.get("max_color_temp_kelvin")
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def kelvin(self) -> int | None:
-        """Current color temperature in Kelvin, or ``None``.
-
-        Returns
-        -------
-        int or None
-            The current Kelvin value.
-        """
+        """Current color temperature in Kelvin, or ``None``."""
         value = self.attributes.get("color_temp_kelvin")
         return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def rgb_color(self) -> tuple[int, int, int] | None:
-        """Current RGB color tuple or ``None``.
-
-        Returns
-        -------
-        tuple of int or None
-            3-element ``(R, G, B)`` tuple, each 0--255.
-        """
+        """Current RGB color tuple, or ``None``."""
         value = self.attributes.get("rgb_color")
         if isinstance(value, (list, tuple)) and len(value) == 3:
             return (int(value[0]), int(value[1]), int(value[2]))
         return None
 
-    # -- Actions --
+    # -- Actions ------------------------------------------------------
 
     async def set_brightness(self, brightness: int, *, transition: float | None = None) -> None:
-        """Set the brightness (0--255), turning the light on if needed.
-
-        Parameters
-        ----------
-        brightness : int
-            Brightness value (0--255).
-        transition : float or None, optional
-            Transition time in seconds.
-        """
+        """Set the brightness (0--255), turning the light on if needed."""
         data: dict[str, Any] = {"brightness": int(brightness)}
         if transition is not None:
             data["transition"] = transition
         await self._call_service("turn_on", data)
 
     async def set_kelvin(self, kelvin: int, *, transition: float | None = None) -> None:
-        """Set the color temperature in Kelvin, turning the light on if needed.
-
-        Parameters
-        ----------
-        kelvin : int
-            Color temperature in Kelvin.
-        transition : float or None, optional
-            Transition time in seconds.
-        """
+        """Set the color temperature in Kelvin, turning the light on if needed."""
         data: dict[str, Any] = {"color_temp_kelvin": int(kelvin)}
         if transition is not None:
             data["transition"] = transition
@@ -212,19 +106,7 @@ class Light(Entity):
         *,
         transition: float | None = None,
     ) -> None:
-        """Set the RGB color, turning the light on if needed.
-
-        Parameters
-        ----------
-        r : int
-            Red component (0--255).
-        g : int
-            Green component (0--255).
-        b : int
-            Blue component (0--255).
-        transition : float or None, optional
-            Transition time in seconds.
-        """
+        """Set the RGB color, turning the light on if needed."""
         data: dict[str, Any] = {"rgb_color": [r, g, b]}
         if transition is not None:
             data["transition"] = transition
@@ -237,18 +119,9 @@ class Light(Entity):
         kelvin: int | None = None,
         transition: float | None = None,
     ) -> None:
-        """Set the light color by RGB or Kelvin, turning the light on if needed.
+        """Set the light color by RGB or Kelvin.
 
         Exactly one of *rgb* or *kelvin* must be provided.
-
-        Parameters
-        ----------
-        rgb : tuple of int or None, optional
-            RGB color as a 3-element tuple.
-        kelvin : int or None, optional
-            Color temperature in Kelvin.
-        transition : float or None, optional
-            Transition time in seconds.
 
         Raises
         ------
@@ -269,26 +142,14 @@ class Light(Entity):
             await self._call_service("turn_on", data)
 
     async def on(self, *, transition: float | None = None) -> None:
-        """Turn the light on without changing any color or brightness settings.
-
-        Parameters
-        ----------
-        transition : float or None, optional
-            Transition time in seconds.
-        """
+        """Turn the light on without changing color or brightness."""
         data: dict[str, Any] = {}
         if transition is not None:
             data["transition"] = transition
         await self._call_service("turn_on", data or None)
 
     async def off(self, *, transition: float | None = None) -> None:
-        """Turn the light off.
-
-        Parameters
-        ----------
-        transition : float or None, optional
-            Transition time in seconds.
-        """
+        """Turn the light off."""
         data: dict[str, Any] = {}
         if transition is not None:
             data["transition"] = transition
@@ -297,3 +158,7 @@ class Light(Entity):
     async def toggle(self) -> None:
         """Toggle the on/off state of the light."""
         await self._call_service("toggle")
+
+
+SPEC: DomainSpec[Light] = register_domain(DomainSpec(name="light", entity_cls=Light))
+"""The `DomainSpec` registered with the shared `DomainRegistry`."""

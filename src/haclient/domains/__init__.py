@@ -1,14 +1,19 @@
-"""Domain-specific `Entity` subclasses."""
+"""Domain-specific `Entity` subclasses.
 
-from .binary_sensor import BinarySensor
-from .climate import Climate
-from .cover import Cover
-from .light import Light
-from .media_player import FavoriteItem, MediaPlayer, NowPlaying
-from .scene import Scene
-from .sensor import Sensor
-from .switch import Switch
-from .timer import Timer
+Importing this package registers every built-in `DomainSpec` with the
+shared `DomainRegistry`. Domains that are not imported are simply
+unavailable; this is the basis for opt-in / opt-out loading.
+"""
+
+from haclient.domains.binary_sensor import BinarySensor
+from haclient.domains.climate import Climate
+from haclient.domains.cover import Cover
+from haclient.domains.light import Light
+from haclient.domains.media_player import FavoriteItem, MediaPlayer, NowPlaying
+from haclient.domains.scene import Scene
+from haclient.domains.sensor import Sensor
+from haclient.domains.switch import Switch
+from haclient.domains.timer import Timer
 
 __all__ = [
     "BinarySensor",

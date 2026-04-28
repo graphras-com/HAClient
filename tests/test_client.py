@@ -1,4 +1,4 @@
-"""End-to-end tests for the high-level HAClient."""
+"""End-to-end tests for the high-level HAClient façade."""
 
 from __future__ import annotations
 
@@ -7,24 +7,24 @@ from typing import Any
 
 import pytest
 
-from haclient import HAClient
-from haclient.client import _derive_ws_url
-from haclient.exceptions import HAClientError
+from haclient import HAClient, Light, Switch
+from haclient.config import derive_ws_url
+from haclient.exceptions import ConnectionClosedError, HAClientError
 
 from .fake_ha import FakeHA
 
 
 def test_derive_ws_url() -> None:
-    assert _derive_ws_url("http://ha:8123") == "ws://ha:8123/api/websocket"
-    assert _derive_ws_url("https://ha:8123/") == "wss://ha:8123/api/websocket"
-    assert _derive_ws_url("http://ha:8123/base") == "ws://ha:8123/base/api/websocket"
+    assert derive_ws_url("http://ha:8123") == "ws://ha:8123/api/websocket"
+    assert derive_ws_url("https://ha:8123/") == "wss://ha:8123/api/websocket"
+    assert derive_ws_url("http://ha:8123/base") == "ws://ha:8123/base/api/websocket"
 
 
 async def test_connect_primes_state(fake_ha: FakeHA) -> None:
     fake_ha.states = [
         {"entity_id": "light.kitchen", "state": "on", "attributes": {"brightness": 150}},
     ]
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
         light = ha.light("kitchen")
@@ -73,14 +73,6 @@ async def test_domain_accessor_rejects_fully_qualified(client: HAClient) -> None
         client.media_player("media_player.livingroom")
 
 
-async def test_domain_accessor_type_conflict(client: HAClient) -> None:
-    client.light("kitchen")
-    with pytest.raises(HAClientError):
-        from haclient import Switch
-
-        client._get_or_create("light", "kitchen", Switch)
-
-
 async def test_refresh_all(client: HAClient, fake_ha: FakeHA) -> None:
     light = client.light("kitchen")
     sensor = client.sensor("temp")
@@ -88,7 +80,7 @@ async def test_refresh_all(client: HAClient, fake_ha: FakeHA) -> None:
         {"entity_id": "light.kitchen", "state": "on", "attributes": {"brightness": 50}},
         {"entity_id": "sensor.temp", "state": "22.5", "attributes": {"unit_of_measurement": "°C"}},
     ]
-    await client.refresh_all()
+    await client.state.refresh_all()
     assert light.is_on
     assert light.brightness == 50
     assert sensor.value == 22.5
@@ -97,35 +89,45 @@ async def test_refresh_all(client: HAClient, fake_ha: FakeHA) -> None:
 
 async def test_refresh_all_marks_missing_unavailable(client: HAClient, fake_ha: FakeHA) -> None:
     light = client.light("kitchen")
-    await client.refresh_all()
+    await client.state.refresh_all()
     assert not light.available
     assert light.state == "unavailable"
 
 
 async def test_context_manager(fake_ha: FakeHA) -> None:
-    async with HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0) as ha:
-        assert ha.ws.connected
-    assert not ha.ws.connected
+    async with HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0) as ha:
+        assert ha.connection.ws.connected
+    assert not ha.connection.ws.connected
 
 
 async def test_call_service_via_rest_fallback(fake_ha: FakeHA) -> None:
-    """If WS isn't connected, fall back to REST."""
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    """If WS isn't connected, prefer='rest' uses REST."""
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
-        await ha._call_service("switch", "toggle", {"entity_id": "switch.x"}, use_websocket=False)
+        await ha.services.call("switch", "toggle", {"entity_id": "switch.x"}, prefer="rest")
     finally:
         await ha.close()
     assert fake_ha.rest_service_calls == [("switch", "toggle", {"entity_id": "switch.x"})]
 
 
+async def test_call_service_prefer_ws_when_disconnected(fake_ha: FakeHA) -> None:
+    """prefer='ws' raises when WS is not connected."""
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
+    try:
+        with pytest.raises(ConnectionClosedError):
+            await ha.services.call("switch", "toggle", prefer="ws")
+    finally:
+        await ha.close()
+
+
 async def test_reconnect_triggers_refresh_all(fake_ha: FakeHA) -> None:
-    """After reconnect, HAClient automatically calls refresh_all."""
+    """After reconnect, the connection automatically refreshes state."""
     fake_ha.states = [
         {"entity_id": "light.kitchen", "state": "off", "attributes": {}},
     ]
-    ha = HAClient(
+    ha = HAClient.from_url(
         fake_ha.base_url,
-        fake_ha.token,
+        token=fake_ha.token,
         ping_interval=0,
         request_timeout=5.0,
     )
@@ -134,16 +136,13 @@ async def test_reconnect_triggers_refresh_all(fake_ha: FakeHA) -> None:
     try:
         assert light.state == "off"
 
-        # Update server state while we're about to disconnect
         fake_ha.states = [
             {"entity_id": "light.kitchen", "state": "on", "attributes": {"brightness": 200}},
         ]
 
-        # Force disconnect
         for conn in list(fake_ha.connections):
             await conn.close()
 
-        # Wait for reconnect + auto-refresh
         for _ in range(50):
             await asyncio.sleep(0.1)
             if light.state == "on":
@@ -155,10 +154,10 @@ async def test_reconnect_triggers_refresh_all(fake_ha: FakeHA) -> None:
 
 
 async def test_create_scene(fake_ha: FakeHA) -> None:
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
-        scene = await ha.create_scene(
+        scene = await ha.scene.create(
             "romantic",
             {"light.ceiling": {"state": "on", "brightness": 80}},
         )
@@ -176,10 +175,10 @@ async def test_create_scene(fake_ha: FakeHA) -> None:
 
 
 async def test_create_scene_with_snapshot(fake_ha: FakeHA) -> None:
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
-        scene = await ha.create_scene(
+        scene = await ha.scene.create(
             "snapshot_test",
             {"light.ceiling": {"state": "on"}},
             snapshot_entities=["light.lamp"],
@@ -192,10 +191,10 @@ async def test_create_scene_with_snapshot(fake_ha: FakeHA) -> None:
 
 
 async def test_apply_scene(fake_ha: FakeHA) -> None:
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
-        await ha.apply_scene({"light.ceiling": {"state": "on", "brightness": 200}})
+        await ha.scene.apply({"light.ceiling": {"state": "on", "brightness": 200}})
         calls = fake_ha.ws_service_calls
         assert len(calls) == 1
         assert calls[0]["domain"] == "scene"
@@ -209,10 +208,10 @@ async def test_apply_scene(fake_ha: FakeHA) -> None:
 
 
 async def test_apply_scene_with_transition(fake_ha: FakeHA) -> None:
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
-        await ha.apply_scene(
+        await ha.scene.apply(
             {"light.ceiling": {"state": "on"}},
             transition=3.0,
         )
@@ -223,11 +222,12 @@ async def test_apply_scene_with_transition(fake_ha: FakeHA) -> None:
 
 
 async def test_invalid_entity_id_direct_construction() -> None:
-    ha = HAClient("http://x", "t")
-    from haclient import Light
-
-    with pytest.raises(ValueError):
-        Light("kitchen", ha)
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
+    try:
+        with pytest.raises(ValueError):
+            Light("kitchen", ha.services, ha.state, ha._clock)
+    finally:
+        await ha.close()
 
 
 async def test_double_connect_is_noop(client: HAClient) -> None:
@@ -235,23 +235,25 @@ async def test_double_connect_is_noop(client: HAClient) -> None:
 
 
 def test_loop_property_without_running_loop() -> None:
-    ha = HAClient("http://x", "t")
-    assert ha.loop is None
+    ha = HAClient.from_url("http://x", token="t", load_plugins=False)
+    try:
+        assert ha.loop() is None
+    finally:
+        # No async cleanup necessary outside a loop.
+        pass
 
 
 async def test_state_changed_event_missing_entity_id(client: HAClient) -> None:
-    client._on_state_changed_event({"data": {"entity_id": 42}})
-    client._on_state_changed_event({})
+    client.state._on_state_changed({"data": {"entity_id": 42}})
+    client.state._on_state_changed({})
 
 
 async def test_connect_primes_already_registered_entity(fake_ha: FakeHA) -> None:
     fake_ha.states = [
         {"entity_id": "light.kitchen", "state": "on", "attributes": {"brightness": 90}},
     ]
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
-    from haclient import Light
-
-    light = Light("light.kitchen", ha)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
+    light = ha.light("kitchen")
     try:
         await ha.connect()
         assert light.is_on
@@ -267,7 +269,7 @@ async def test_initial_state_fetch_includes_non_string_entity_id(
         {"entity_id": 123, "state": "on", "attributes": {}},
         {"entity_id": "light.kitchen", "state": "on", "attributes": {}},
     ]
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
     try:
         await ha.connect()
     finally:
@@ -275,10 +277,10 @@ async def test_initial_state_fetch_includes_non_string_entity_id(
 
 
 async def test_initial_state_fetch_failure_is_logged(fake_ha: FakeHA, caplog: Any) -> None:
-    ha = HAClient(fake_ha.base_url, "wrong-token", ping_interval=0)
-    ha.rest._token = "still-wrong"  # noqa: SLF001
-    ha._token = fake_ha.token  # noqa: SLF001
-    ha.ws._token = fake_ha.token  # noqa: SLF001
+    """If the REST snapshot 401s, priming logs a warning but continues."""
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0)
+    # Swap the REST adapter's token so the snapshot fails after WS auth succeeds.
+    ha.connection.rest._token = "wrong-token"  # type: ignore[attr-defined]
     try:
         await ha.connect()
     finally:
@@ -287,7 +289,7 @@ async def test_initial_state_fetch_failure_is_logged(fake_ha: FakeHA, caplog: An
 
 async def test_on_reconnect_proxy(fake_ha: FakeHA) -> None:
     """on_reconnect registered via HAClient fires after reconnection."""
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0, reconnect=True)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0, reconnect=True)
     called = asyncio.Event()
 
     @ha.on_reconnect
@@ -296,7 +298,6 @@ async def test_on_reconnect_proxy(fake_ha: FakeHA) -> None:
 
     try:
         await ha.connect()
-        # Force-close all server-side connections to trigger a reconnect.
         for conn in list(fake_ha.connections):
             await conn.close()
 
@@ -307,7 +308,7 @@ async def test_on_reconnect_proxy(fake_ha: FakeHA) -> None:
 
 async def test_on_disconnect_proxy(fake_ha: FakeHA) -> None:
     """on_disconnect registered via HAClient fires when connection drops."""
-    ha = HAClient(fake_ha.base_url, fake_ha.token, ping_interval=0, reconnect=False)
+    ha = HAClient.from_url(fake_ha.base_url, token=fake_ha.token, ping_interval=0, reconnect=False)
     called = asyncio.Event()
 
     @ha.on_disconnect
@@ -322,3 +323,33 @@ async def test_on_disconnect_proxy(fake_ha: FakeHA) -> None:
         await asyncio.wait_for(called.wait(), timeout=5)
     finally:
         await ha.close()
+
+
+async def test_domain_accessor_via_generic(client: HAClient) -> None:
+    """The generic ``ha.domain('light')`` route also works."""
+    accessor = client.domain("light")
+    light = accessor("kitchen")
+    same = client.light("kitchen")
+    assert light is same
+
+
+async def test_domain_accessor_unknown_domain(client: HAClient) -> None:
+    with pytest.raises(HAClientError):
+        client.domain("does_not_exist")
+
+
+async def test_domain_accessor_subscript(client: HAClient) -> None:
+    light = client.domain("light")["kitchen"]
+    assert light.entity_id == "light.kitchen"
+
+
+async def test_type_conflict_raises_explicit_message(client: HAClient) -> None:
+    """Asking for a Switch under a Light's id raises HAClientError."""
+    light = client.light("kitchen")
+    # Replace the registered entry with a different class to force the conflict.
+    client.state.registry._entities["switch.kitchen"] = light
+    with pytest.raises(HAClientError, match="not Switch"):
+        client.switch("kitchen")
+    # Confirm Switch lookup works for unrelated ids.
+    other = client.switch("outlet")
+    assert isinstance(other, Switch)

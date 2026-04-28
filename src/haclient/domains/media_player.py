@@ -12,10 +12,16 @@ import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..entity import Entity, ValueChangeHandler
-from ..exceptions import CommandError, HAClientError
+from haclient.core.plugins import DomainSpec, register_domain
+from haclient.entity.base import Entity, ValueChangeHandler
+from haclient.exceptions import CommandError, HAClientError
+
+if TYPE_CHECKING:
+    from haclient.core.services import ServiceCaller
+    from haclient.core.state import StateStore
+    from haclient.ports import Clock
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,21 +33,7 @@ def _now_playing_from_attrs(
     attrs: dict[str, Any],
     base_url: str | None = None,
 ) -> NowPlaying:
-    """Build a `NowPlaying` from a raw HA attributes dict.
-
-    Parameters
-    ----------
-    attrs : dict
-        Raw attributes dictionary from Home Assistant.
-    base_url : str or None, optional
-        The Home Assistant base URL. When provided, a relative
-        ``entity_picture`` path is resolved to an absolute URL.
-
-    Returns
-    -------
-    NowPlaying
-        A structured snapshot of the currently playing media.
-    """
+    """Build a `NowPlaying` from a raw HA attributes dict."""
     features = attrs.get("supported_features") or 0
     picture = attrs.get("entity_picture")
     if isinstance(picture, str) and base_url and picture.startswith("/"):
@@ -69,13 +61,11 @@ def _now_playing_from_attrs(
 class NowPlaying:
     """Structured snapshot of the media currently playing on a media player.
 
-    Groups all identity-related media attributes into a single object.
-    Position/progress fields are intentionally excluded -- they change
-    continuously during playback and do not represent a change in *what*
-    is playing.
-
-    Instances are frozen (immutable and hashable) so two snapshots can be
-    compared with ``==`` to detect whether the playing media changed.
+    Groups identity-related media attributes into a single object.
+    Position/progress fields are intentionally excluded — they change
+    continuously during playback. Instances are frozen so two snapshots
+    can be compared with ``==`` to detect whether the playing media
+    changed.
 
     Attributes
     ----------
@@ -96,9 +86,7 @@ class NowPlaying:
     duration : int or None
         Media duration in seconds.
     entity_picture : str or None
-        Absolute URL of the entity picture / album art. Relative paths
-        returned by Home Assistant are resolved against the client's
-        base URL automatically.
+        Absolute URL of the entity picture / album art.
     queue_position : int or None
         Current position in the play queue.
     queue_size : int or None
@@ -134,20 +122,9 @@ class FavoriteItem:
     """A flattened, directly-playable entry discovered via ``browse_media``.
 
     The item remembers which `MediaPlayer` it belongs to, along with the
-    ``media_content_id`` / ``media_content_type`` pair needed to play it. Call
-    `play` to start playback on the owning media player.
+    ``media_content_id`` / ``media_content_type`` pair needed to play it.
 
-    Extra metadata is captured to make the item easy to render in a UI:
-
-    * ``thumbnail`` -- an optional image URL from Home Assistant.
-    * ``category`` -- a human-readable label for the kind of favorite (e.g.
-      ``"Radio"``, ``"Albums"``, ``"Playlists"``). It is derived from the title
-      of the parent folder it was found under when available, otherwise falls
-      back to ``media_class``.
-    * ``media_class`` -- the raw ``media_class`` reported by HA (e.g.
-      ``"genre"``, ``"album"``, ``"playlist"``, ``"track"``).
-
-    Parameters
+    Attributes
     ----------
     title : str
         Display title.
@@ -155,13 +132,11 @@ class FavoriteItem:
         Content identifier for playback.
     media_content_type : str
         Content type for playback.
-    player : MediaPlayer
-        The owning media player.
-    thumbnail : str or None, optional
+    thumbnail : str or None
         Image URL.
-    category : str or None, optional
+    category : str or None
         Human-readable category label.
-    media_class : str or None, optional
+    media_class : str or None
         Raw media class from Home Assistant.
     """
 
@@ -212,116 +187,50 @@ class FavoriteItem:
 class MediaPlayer(Entity):
     """A Home Assistant media player entity.
 
-    Provides intent-specific methods for playback control (``play``,
-    ``pause``, ``stop``, ``next``, ``previous``), volume management
-    (``set_volume``, ``mute``), power control (``power_on``,
-    ``power_off``), source selection, and media browsing/favorites.
+    Provides intent-specific methods for playback control, volume
+    management, power, source selection, and media browsing/favorites.
     """
 
     domain = "media_player"
 
-    def __init__(self, entity_id: str, client: Any) -> None:
-        super().__init__(entity_id, client)
+    def __init__(
+        self,
+        entity_id: str,
+        services: ServiceCaller,
+        store: StateStore,
+        clock: Clock,
+    ) -> None:
+        super().__init__(entity_id, services, store, clock)
         self._media_change_listeners: list[ValueChangeHandler] = []
 
-    # -- Listener decorators --
+    # -- Listener decorators ------------------------------------------
 
     def on_volume_change(self, func: Any) -> Any:
-        """Register a listener for volume level changes.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_volume, new_volume)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for volume level changes."""
         return self._register_attr_listener("volume_level", func)
 
     def on_mute_change(self, func: Any) -> Any:
-        """Register a listener for mute state changes.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_muted, new_muted)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for mute state changes."""
         return self._register_attr_listener("is_volume_muted", func)
 
     def on_media_change(self, func: Any) -> Any:
         """Register a listener for when the playing media changes.
 
-        Fires when any identity attribute changes (source, title, artist,
-        album, channel, content_type, content_id, duration, entity_picture,
-        queue_position, queue_size, playlist, repeat, next, previous)
-        but **not** on position/progress updates.
-
-        The callback receives ``(old: NowPlaying, new: NowPlaying)``.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old, new)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
+        Receives ``(old: NowPlaying, new: NowPlaying)``.
         """
         self._media_change_listeners.append(func)
         return func
 
     def on_play(self, func: Any) -> Any:
-        """Register a listener for when playback starts.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when playback starts."""
         return self._register_state_transition_listener("playing", func)
 
     def on_pause(self, func: Any) -> Any:
-        """Register a listener for when playback pauses.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when playback pauses."""
         return self._register_state_transition_listener("paused", func)
 
     def on_stop(self, func: Any) -> Any:
-        """Register a listener for when playback stops.
-
-        Parameters
-        ----------
-        func : callable
-            Callback with signature ``(old_state, new_state)``.
-
-        Returns
-        -------
-        callable
-            The same *func*, for use as a decorator.
-        """
+        """Register a listener for when playback stops."""
         return self._register_state_transition_listener("idle", func)
 
     def _dispatch_granular_events(
@@ -333,7 +242,7 @@ class MediaPlayer(Entity):
         super()._dispatch_granular_events(old_state, new_state)
         old_attrs = (old_state or {}).get("attributes") or {}
         new_attrs = (new_state or {}).get("attributes") or {}
-        base = self._client.base_url
+        base = self._services.rest.base_url
         old_np = _now_playing_from_attrs(old_attrs, base)
         new_np = _now_playing_from_attrs(new_attrs, base)
         if old_np != new_np:
@@ -341,77 +250,41 @@ class MediaPlayer(Entity):
                 self._schedule_value(listener, old_np, new_np)
 
     def remove_granular_listener(self, func: ValueChangeHandler) -> None:
-        """Remove a granular listener, including media-change listeners.
-
-        Parameters
-        ----------
-        func : callable
-            The listener function to remove.
-        """
+        """Remove a granular listener, including media-change listeners."""
         with contextlib.suppress(ValueError):
             self._media_change_listeners.remove(func)
             return
         super().remove_granular_listener(func)
 
-    # -- State properties --
+    # -- State properties ---------------------------------------------
 
     @property
     def is_playing(self) -> bool:
-        """Check whether the media player is currently playing.
-
-        Returns
-        -------
-        bool
-            ``True`` if playing.
-        """
+        """Whether the media player is currently playing."""
         return self.state == "playing"
 
     @property
     def is_paused(self) -> bool:
-        """Check whether the media player is currently paused.
-
-        Returns
-        -------
-        bool
-            ``True`` if paused.
-        """
+        """Whether the media player is currently paused."""
         return self.state == "paused"
 
     @property
     def is_muted(self) -> bool:
-        """Check whether the media player is currently muted.
-
-        Returns
-        -------
-        bool
-            ``True`` if muted.
-        """
+        """Whether the media player is currently muted."""
         return bool(self.attributes.get("is_volume_muted"))
 
     @property
     def volume_level(self) -> float | None:
-        """Current volume level (``0.0`` -- ``1.0``) or ``None`` if unknown.
-
-        Returns
-        -------
-        float or None
-            The volume level.
-        """
+        """Current volume level (``0.0``–``1.0``) or ``None``."""
         value = self.attributes.get("volume_level")
         return float(value) if isinstance(value, (int, float)) else None
 
     @property
     def now_playing(self) -> NowPlaying:
-        """Structured snapshot of the currently playing media.
+        """Structured snapshot of the currently playing media."""
+        return _now_playing_from_attrs(self.attributes, self._services.rest.base_url)
 
-        Returns
-        -------
-        NowPlaying
-            The current playback metadata.
-        """
-        return _now_playing_from_attrs(self.attributes, self._client.base_url)
-
-    # -- Actions --
+    # -- Actions ------------------------------------------------------
 
     async def play(self) -> None:
         """Resume / start playback."""
@@ -455,13 +328,7 @@ class MediaPlayer(Entity):
         await self._call_service("volume_set", {"volume_level": float(level)})
 
     async def mute(self, muted: bool = True) -> None:
-        """Mute or unmute the media player.
-
-        Parameters
-        ----------
-        muted : bool, optional
-            ``True`` to mute, ``False`` to unmute.
-        """
+        """Mute or unmute the media player."""
         await self._call_service("volume_mute", {"is_volume_muted": bool(muted)})
 
     async def power_on(self) -> None:
@@ -473,13 +340,7 @@ class MediaPlayer(Entity):
         await self._call_service("turn_off")
 
     async def select_source(self, source: str) -> None:
-        """Select an input source.
-
-        Parameters
-        ----------
-        source : str
-            The source name to select.
-        """
+        """Select an input source."""
         await self._call_service("select_source", {"source": source})
 
     async def play_media(
@@ -488,17 +349,7 @@ class MediaPlayer(Entity):
         media_content_id: str,
         **extra: Any,
     ) -> None:
-        """Play a specific media item.
-
-        Parameters
-        ----------
-        media_content_type : str
-            The content type (e.g. ``"music"``).
-        media_content_id : str
-            The content identifier.
-        **extra : Any
-            Additional service data forwarded to Home Assistant.
-        """
+        """Play a specific media item."""
         data: dict[str, Any] = {
             "media_content_type": media_content_type,
             "media_content_id": media_content_id,
@@ -512,13 +363,6 @@ class MediaPlayer(Entity):
         media_content_id: str | None = None,
     ) -> dict[str, Any]:
         """Issue a single ``media_player/browse_media`` WebSocket command.
-
-        Parameters
-        ----------
-        media_content_type : str or None, optional
-            Content type to browse.
-        media_content_id : str or None, optional
-            Content id to browse into.
 
         Returns
         -------
@@ -538,7 +382,7 @@ class MediaPlayer(Entity):
             payload["media_content_type"] = media_content_type
         if media_content_id is not None:
             payload["media_content_id"] = media_content_id
-        result = await self._client.ws.send_command(payload)
+        result = await self._services.ws.send_command(payload)
         if not isinstance(result, dict):
             raise HAClientError("Unexpected browse_media response")
         return result
@@ -551,20 +395,12 @@ class MediaPlayer(Entity):
     ) -> list[FavoriteItem]:
         """Return a flattened list of playable items in the media tree.
 
-        Recursively walks the ``browse_media`` tree rooted at the entity and
-        collects every entry that Home Assistant marks as ``can_play`` (and
-        that has a ``media_content_id``).
-
-        If the media player doesn't support browsing, an empty list is
-        returned (no exception is raised).
-
         Parameters
         ----------
         max_depth : int, optional
-            Maximum recursion depth. Defaults to a sensible cap to avoid
-            pathological trees.
+            Maximum recursion depth.
         max_nodes : int, optional
-            Hard upper bound on total nodes visited (also a safety net).
+            Hard upper bound on total nodes visited.
 
         Returns
         -------
@@ -645,3 +481,9 @@ class MediaPlayer(Entity):
 
         await walk(root, 0, None)
         return collected
+
+
+SPEC: DomainSpec[MediaPlayer] = register_domain(
+    DomainSpec(name="media_player", entity_cls=MediaPlayer)
+)
+"""The `DomainSpec` registered with the shared `DomainRegistry`."""

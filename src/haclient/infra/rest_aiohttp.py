@@ -1,14 +1,8 @@
-"""Thin async wrapper around the Home Assistant REST API.
+"""aiohttp-based implementation of `RestPort`.
 
-Only the endpoints needed by `HAClient` are exposed:
-
-* ``GET  /api/``              -- ping / connectivity check
-* ``GET  /api/states``        -- fetch all states
-* ``GET  /api/states/{id}``   -- fetch a single state
-* ``POST /api/services/{domain}/{service}`` -- invoke a service
-
-Internally we use ``aiohttp`` because the WebSocket layer already depends on
-it, keeping the dependency surface minimal.
+Only the endpoints actually used by the core are exposed. The adapter
+optionally accepts an externally-owned `aiohttp.ClientSession`; when no
+session is provided one is created and managed internally.
 """
 
 from __future__ import annotations
@@ -18,23 +12,24 @@ from typing import Any
 
 import aiohttp
 
-from .exceptions import AuthenticationError, HAClientError
-from .exceptions import TimeoutError as HATimeoutError
+from haclient.exceptions import AuthenticationError, HAClientError
+from haclient.exceptions import TimeoutError as HATimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class RestClient:
-    """Async client for the Home Assistant REST API.
+class AiohttpRestAdapter:
+    """Async REST client backed by ``aiohttp``.
 
     Parameters
     ----------
     base_url : str
-        The Home Assistant base URL.
+        Home Assistant base URL (without trailing slash).
     token : str
         Long-lived access token.
     session : aiohttp.ClientSession or None, optional
-        Shared HTTP session. If not provided one is created automatically.
+        Externally-owned session to reuse. When ``None`` the adapter
+        creates its own session and closes it on `close`.
     timeout : float, optional
         Request timeout in seconds.
     verify_ssl : bool, optional
@@ -57,6 +52,11 @@ class RestClient:
         self._session = session
         self._owns_session = session is None
 
+    @property
+    def base_url(self) -> str:
+        """Return the configured base URL."""
+        return self._base_url
+
     async def _ensure_session(self) -> aiohttp.ClientSession:
         """Return the current session, creating one if necessary."""
         if self._session is None or self._session.closed:
@@ -65,13 +65,13 @@ class RestClient:
         return self._session
 
     async def close(self) -> None:
-        """Close the underlying HTTP session (if we own it)."""
+        """Close the underlying HTTP session if we own it."""
         if self._owns_session and self._session is not None and not self._session.closed:
             await self._session.close()
 
     @property
     def _headers(self) -> dict[str, str]:
-        """Return the authorization and content-type headers."""
+        """Return authorization and content-type headers."""
         return {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
@@ -95,9 +95,9 @@ class RestClient:
         Parameters
         ----------
         method : str
-            HTTP method (e.g. ``"GET"``, ``"POST"``).
+            HTTP method (e.g. ``"GET"``).
         path : str
-            Relative API path (e.g. ``"/api/states"``).
+            Relative API path.
         json : Any or None, optional
             JSON-serialisable body.
 
@@ -109,11 +109,11 @@ class RestClient:
         Raises
         ------
         AuthenticationError
-            If the server returns HTTP 401.
+            On HTTP 401.
         HAClientError
-            On any HTTP error >= 400 or connection failure.
+            On any other HTTP error or connection failure.
         TimeoutError
-            If the request exceeds the configured timeout.
+            On request timeout.
         """
         session = await self._ensure_session()
         url = self._url(path)
@@ -140,13 +140,7 @@ class RestClient:
             raise HAClientError(f"HTTP request failed: {err}") from err
 
     async def ping(self) -> bool:
-        """Check whether the Home Assistant API is reachable.
-
-        Returns
-        -------
-        bool
-            ``True`` if the API responds successfully.
-        """
+        """Verify Home Assistant is reachable."""
         await self._request("GET", "/api/")
         return True
 
@@ -156,7 +150,7 @@ class RestClient:
         Returns
         -------
         list of dict
-            A list of state objects.
+            The state objects.
 
         Raises
         ------
@@ -169,12 +163,12 @@ class RestClient:
         return data
 
     async def get_state(self, entity_id: str) -> dict[str, Any] | None:
-        """Return the state object for *entity_id*, or ``None`` if not found.
+        """Return the state object for *entity_id*, or ``None`` if missing.
 
         Parameters
         ----------
         entity_id : str
-            Fully-qualified entity id (e.g. ``"light.kitchen"``).
+            Fully-qualified entity id.
 
         Returns
         -------
@@ -197,22 +191,21 @@ class RestClient:
         service: str,
         data: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Invoke a Home Assistant service via REST.
+        """Invoke a service via REST.
 
         Parameters
         ----------
         domain : str
-            The service domain (e.g. ``"light"``).
+            The service domain.
         service : str
-            The service name (e.g. ``"turn_on"``).
+            The service name.
         data : dict or None, optional
             Service data payload.
 
         Returns
         -------
         list of dict
-            The list of states that were changed (if any). Home Assistant
-            returns this list directly in the response body.
+            The list of states changed by the service call.
         """
         payload = data or {}
         result = await self._request("POST", f"/api/services/{domain}/{service}", json=payload)
