@@ -309,14 +309,41 @@ class HAClient:
         self,
         handler: Callable[[], Awaitable[None] | None],
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register a disconnect listener."""
+        """Register a disconnect listener.
+
+        Parameters
+        ----------
+        handler : callable
+            Sync or async zero-argument callable invoked when the
+            WebSocket connection drops.
+
+        Returns
+        -------
+        callable
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._connection.on_disconnect(handler)
 
     def on_reconnect(
         self,
         handler: Callable[[], Awaitable[None] | None],
     ) -> Callable[[], Awaitable[None] | None]:
-        """Register a reconnect listener."""
+        """Register a reconnect listener.
+
+        Parameters
+        ----------
+        handler : callable
+            Sync or async zero-argument callable invoked after the
+            WebSocket reconnects successfully and the state cache has
+            been re-primed.
+
+        Returns
+        -------
+        callable
+            The same *handler*, returned so the method can be used as a
+            decorator.
+        """
         return self._connection.on_reconnect(handler)
 
     # -- Domain accessors --------------------------------------------
@@ -352,31 +379,115 @@ class HAClient:
     # -- Built-in typed accessors ------------------------------------
 
     def light(self, name: str) -> Light:
-        """Return the `Light` for *name*."""
+        """Return the `Light` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``light.`` prefix) or full
+            ``light.<name>`` entity id.
+
+        Returns
+        -------
+        Light
+            The (cached) entity instance.
+        """
         return cast("Light", self._accessors["light"][name])
 
     def switch(self, name: str) -> Switch:
-        """Return the `Switch` for *name*."""
+        """Return the `Switch` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``switch.`` prefix) or full
+            ``switch.<name>`` entity id.
+
+        Returns
+        -------
+        Switch
+            The (cached) entity instance.
+        """
         return cast("Switch", self._accessors["switch"][name])
 
     def climate(self, name: str) -> Climate:
-        """Return the `Climate` for *name*."""
+        """Return the `Climate` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``climate.`` prefix) or full
+            ``climate.<name>`` entity id.
+
+        Returns
+        -------
+        Climate
+            The (cached) entity instance.
+        """
         return cast("Climate", self._accessors["climate"][name])
 
     def cover(self, name: str) -> Cover:
-        """Return the `Cover` for *name*."""
+        """Return the `Cover` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``cover.`` prefix) or full
+            ``cover.<name>`` entity id.
+
+        Returns
+        -------
+        Cover
+            The (cached) entity instance.
+        """
         return cast("Cover", self._accessors["cover"][name])
 
     def sensor(self, name: str) -> Sensor:
-        """Return the `Sensor` for *name*."""
+        """Return the `Sensor` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``sensor.`` prefix) or full
+            ``sensor.<name>`` entity id.
+
+        Returns
+        -------
+        Sensor
+            The (cached) entity instance.
+        """
         return cast("Sensor", self._accessors["sensor"][name])
 
     def binary_sensor(self, name: str) -> BinarySensor:
-        """Return the `BinarySensor` for *name*."""
+        """Return the `BinarySensor` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``binary_sensor.`` prefix) or
+            full ``binary_sensor.<name>`` entity id.
+
+        Returns
+        -------
+        BinarySensor
+            The (cached) entity instance.
+        """
         return cast("BinarySensor", self._accessors["binary_sensor"][name])
 
     def media_player(self, name: str) -> MediaPlayer:
-        """Return the `MediaPlayer` for *name*."""
+        """Return the `MediaPlayer` for *name*.
+
+        Parameters
+        ----------
+        name : str
+            Short entity name (without the ``media_player.`` prefix) or
+            full ``media_player.<name>`` entity id.
+
+        Returns
+        -------
+        MediaPlayer
+            The (cached) entity instance.
+        """
         return cast("MediaPlayer", self._accessors["media_player"][name])
 
     @property

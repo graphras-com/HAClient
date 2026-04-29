@@ -163,9 +163,36 @@ class EntityFactoryProtocol:
     """
 
     def get_or_create(self, spec: DomainSpec[Any], name: str) -> Any:  # pragma: no cover
+        """Return the entity for *spec*/*name*, creating it on first use.
+
+        Parameters
+        ----------
+        spec : DomainSpec
+            The spec describing the entity's domain.
+        name : str
+            Short entity name or full ``<domain>.<name>`` entity id.
+
+        Returns
+        -------
+        Entity
+            The (possibly newly created) entity instance.
+        """
         raise NotImplementedError
 
     def in_domain(self, spec: DomainSpec[Any]) -> list[Any]:  # pragma: no cover
+        """Return every registered entity belonging to *spec*'s domain.
+
+        Parameters
+        ----------
+        spec : DomainSpec
+            The spec describing the domain to enumerate.
+
+        Returns
+        -------
+        list of Entity
+            All entities currently in the registry whose id starts with
+            ``"<spec.name>."``.
+        """
         raise NotImplementedError
 
 
@@ -228,6 +255,16 @@ class DomainRegistry:
     def get(self, name: str) -> DomainSpec[Any]:
         """Return the spec registered for *name* or raise.
 
+        Parameters
+        ----------
+        name : str
+            The HA domain name to look up.
+
+        Returns
+        -------
+        DomainSpec
+            The registered spec.
+
         Raises
         ------
         HAClientError
@@ -251,7 +288,19 @@ class DomainRegistry:
         return list(self._specs.keys())
 
     def filter(self, names: Iterable[str]) -> list[DomainSpec[Any]]:
-        """Return only the specs whose names are in *names*."""
+        """Return only the specs whose names are in *names*.
+
+        Parameters
+        ----------
+        names : iterable of str
+            Allowed domain names. Unknown names are silently ignored.
+
+        Returns
+        -------
+        list of DomainSpec
+            Registered specs filtered to the requested subset, in
+            registration order.
+        """
         wanted = set(names)
         return [s for s in self._specs.values() if s.name in wanted]
 

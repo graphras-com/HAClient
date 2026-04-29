@@ -21,11 +21,35 @@ class Switch(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_turn_on(self, func: Any) -> Any:
-        """Register a listener for when the switch turns on."""
+        """Register a listener for when the switch turns on.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``on`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("on", func)
 
     def on_turn_off(self, func: Any) -> Any:
-        """Register a listener for when the switch turns off."""
+        """Register a listener for when the switch turns off.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``off`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("off", func)
 
     # -- State properties ---------------------------------------------

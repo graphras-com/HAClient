@@ -140,7 +140,15 @@ class AiohttpRestAdapter:
             raise HAClientError(f"HTTP request failed: {err}") from err
 
     async def ping(self) -> bool:
-        """Verify Home Assistant is reachable."""
+        """Verify Home Assistant is reachable.
+
+        Returns
+        -------
+        bool
+            ``True`` if the ``/api/`` endpoint responded successfully.
+            Failures surface as exceptions from `_request`; this method
+            never returns ``False``.
+        """
         await self._request("GET", "/api/")
         return True
 

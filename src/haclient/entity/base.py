@@ -65,6 +65,12 @@ class Entity:
         Current state string.
     attributes : dict
         Current entity attributes from Home Assistant.
+
+    Raises
+    ------
+    ValueError
+        If *entity_id* is not fully qualified (i.e. lacks a domain
+        prefix like ``"light."``).
     """
 
     domain: ClassVar[str] = ""
@@ -200,7 +206,18 @@ class Entity:
         return func
 
     def remove_granular_listener(self, func: ValueChangeHandler) -> None:
-        """Remove a previously registered granular listener."""
+        """Remove a previously registered granular listener.
+
+        Searches attribute listeners, state-transition listeners, and
+        state-value listeners (in that order) for *func* and removes the
+        first match. Unknown handlers are silently ignored.
+
+        Parameters
+        ----------
+        func : ValueChangeHandler
+            The exact handler previously registered via one of the
+            ``on_*`` listener methods.
+        """
         for listeners in self._attr_listeners.values():
             with contextlib.suppress(ValueError):
                 listeners.remove(func)
@@ -213,12 +230,33 @@ class Entity:
             self._state_value_listeners.remove(func)
 
     def on_state_change(self, func: F) -> F:
-        """Register *func* as a listener for raw state changes."""
+        """Register *func* as a listener for raw state changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable invoked with ``(old_state_dict, new_state_dict)``
+            on every ``state_changed`` event for this entity. May be
+            sync or async.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned so the method can be used as a
+            decorator.
+        """
         self._listeners.append(func)
         return func
 
     def remove_listener(self, func: StateChangeHandler) -> None:
-        """Remove a previously registered state change listener."""
+        """Remove a previously registered state change listener.
+
+        Parameters
+        ----------
+        func : StateChangeHandler
+            The exact handler previously passed to `on_state_change`.
+            Unknown handlers are silently ignored.
+        """
         with contextlib.suppress(ValueError):
             self._listeners.remove(func)
 

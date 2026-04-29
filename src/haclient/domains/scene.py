@@ -71,7 +71,14 @@ class Scene(Entity):
     # -- Actions ------------------------------------------------------
 
     async def activate(self, *, transition: float | None = None) -> None:
-        """Activate the scene."""
+        """Activate the scene.
+
+        Parameters
+        ----------
+        transition : float or None, optional
+            Seconds over which entities supporting transitions should
+            move to their scene state.
+        """
         data: dict[str, Any] | None = None
         if transition is not None:
             data = {"transition": transition}
@@ -84,7 +91,19 @@ class Scene(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_activate(self, func: Any) -> Any:
-        """Register a listener that fires when the scene is activated."""
+        """Register a listener that fires when the scene is activated.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async callable receiving the new ``state`` value
+            (the ISO-8601 activation timestamp).
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_value_listener(func)
 
 

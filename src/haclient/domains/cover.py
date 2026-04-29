@@ -20,15 +20,51 @@ class Cover(Entity):
     # -- Listener decorators ------------------------------------------
 
     def on_open(self, func: Any) -> Any:
-        """Register a listener for when the cover opens."""
+        """Register a listener for when the cover opens.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``open`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("open", func)
 
     def on_close(self, func: Any) -> Any:
-        """Register a listener for when the cover closes."""
+        """Register a listener for when the cover closes.
+
+        Parameters
+        ----------
+        func : callable
+            Sync or async zero-argument callable invoked on every
+            transition into the ``closed`` state.
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_state_transition_listener("closed", func)
 
     def on_position_change(self, func: Any) -> Any:
-        """Register a listener for position changes."""
+        """Register a listener for position changes.
+
+        Parameters
+        ----------
+        func : callable
+            Callable receiving the new ``current_position`` value
+            (0-100).
+
+        Returns
+        -------
+        callable
+            The same *func*, returned for decorator use.
+        """
         return self._register_attr_listener("current_position", func)
 
     # -- State properties ---------------------------------------------
@@ -64,7 +100,14 @@ class Cover(Entity):
         await self._call_service("stop_cover")
 
     async def set_position(self, position: int) -> None:
-        """Set the cover position (0 = closed, 100 = open)."""
+        """Set the cover position (0 = closed, 100 = open).
+
+        Parameters
+        ----------
+        position : int
+            Target position, clamped/coerced to ``int``. ``0`` is fully
+            closed; ``100`` is fully open.
+        """
         await self._call_service("set_cover_position", {"position": int(position)})
 
     async def toggle(self) -> None:
